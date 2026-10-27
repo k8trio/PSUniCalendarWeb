@@ -22,15 +22,12 @@ class User extends Authenticatable
      * dropdown, filter, sidebar group and chart.
      */
     public const CAMPUSES = [
-        'Alaminos Campus',
-        'Asingan Campus',
-        'Bayambang Campus',
-        'Binmaley Campus',
-        'Infanta Campus',
-        'Lingayen Campus',
-        'San Carlos Campus',
-        'Santa Maria Campus',
-        'Urdaneta Campus',
+        'OFFICE OF THE PRESIDENT (OP)',
+        'OFFICE OF THE VICE PRESIDENT FOR ACADEMICS AND STUDENT SERVICES (OVPASS)',
+        'OFFICE OF THE VICE PRESIDENT FOR RESEARCH, EXTENSION, AND INNOVATION (OVPREI)',
+        'OFFICE OF THE VICE PRESIDENT FOR ADMINISRATION AND FINANCE MANAGEMENT (OVPAFM)',
+        'OFFICE OF THE VICE PRESIDENT FOR QUALITY ASSURANCE (OVPQA)',
+        'OFFICE OF THE VICE PRESIDENT FOR LOCAL & INTERNATIONAL AFFAIRS (OVPLIA)',
     ];
 
     /**
