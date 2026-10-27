@@ -22,16 +22,16 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        // Planning Office sidebar: offices grouped by campus + pending review count
+        // Planning Office sidebar: university offices + pending review count
         View::composer('layouts.planning-office', function ($view) {
             $offices = User::where('role', 'office')->orderBy('name')->get(['id', 'name', 'campus']);
 
-            // University Offices first, then each campus. Offices without a group aren't listed.
-            $officesByCampus = collect(User::OFFICE_GROUPS)
-                ->mapWithKeys(fn ($campus) => [$campus => $offices->where('campus', $campus)->values()]);
+            // Campus groups are omitted from this Superadmin navigation.
+            $officesByGroup = collect(User::SIDEBAR_OFFICE_GROUPS)
+                ->mapWithKeys(fn ($group) => [$group => $offices->where('campus', $group)->values()]);
 
             $view->with([
-                'sidebarOfficesByCampus' => $officesByCampus,
+                'sidebarOfficeGroups' => $officesByGroup,
                 'sidebarNotificationCount' => EventRequest::whereIn('status', ['pending', 'conflict'])->count(),
             ]);
         });

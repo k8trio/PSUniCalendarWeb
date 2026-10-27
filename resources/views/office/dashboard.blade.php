@@ -1092,7 +1092,7 @@
                         availPanel.scrollIntoView({ behavior: 'smooth', block: 'center' });
                     }
                 });
-
+    
                 [venueInput, campusSelect, startInput, endInput].forEach(function (field) {
                     field.addEventListener('input', scheduleAvailabilityCheck);
                     field.addEventListener('change', scheduleAvailabilityCheck);

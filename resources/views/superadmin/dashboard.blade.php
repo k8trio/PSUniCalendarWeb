@@ -14,7 +14,7 @@
 @php
     $dash = \App\Services\PlanningOfficeDashboard::class;
     $statusLabel = fn ($status) => \App\Models\EventRequest::statusLabel($status);
-    $selectedCampus = $filters['campus'] ?? '';
+    $selectedOffice = $filters['office'] ?? '';
     $activityLabels = [
         'submitted' => 'Submitted', 'edited' => 'Edited', 'cancelled' => 'Cancelled', 'approved' => 'Approved',
         'rejected' => 'Rejected', 'returned' => 'Returned', 'rescheduled' => 'Rescheduled', 'conflict_resolved' => 'Conflict resolved',
@@ -39,50 +39,55 @@
     @endif
 
     <div class="po-dashboard-top">
-        {{-- ===== Overview: all campuses; click to see the same numbers per campus ===== --}}
+        {{-- ===== Overview: all offices; click to see the same numbers per office ===== --}}
         <details class="od-card po-overview" id="overview">
         <summary class="po-overview__summary">
             <span class="po-overview__head">
-                <span class="od-section-label" style="margin:0">Planning Office Overview{{ $selectedCampus ? ' · ' . $selectedCampus . ' + university-wide' : ' · All Campuses' }}</span>
+                <span>
+                    <span class="od-section-label" style="margin:0">University Event Overview{{ $selectedOffice ? ' · ' . $selectedOffice : ' · All Offices' }}</span>
+                    <span class="po-overview__academic-year">Academic Year {{ $academicYear['label'] }} · {{ $academicYear['start']->format('M j, Y') }} – {{ $academicYear['end']->format('M j, Y') }}</span>
+                </span>
                 <span class="po-overview__toggle" aria-hidden="true">
-                    <span class="po-overview__toggle-show">Show by campus</span>
-                    <span class="po-overview__toggle-hide">Hide campuses</span>
+                    <span class="po-overview__toggle-show">Show by office</span>
+                    <span class="po-overview__toggle-hide">Hide offices</span>
                     <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
                 </span>
             </span>
-            <span class="od-stats po-summary">
-                @foreach($cards as [$label, $key, $modifier, $icon])
-                    <span class="od-stat po-stat {{ $modifier ? 'od-stat--' . $modifier : '' }}">
-                        <span class="po-stat__icon" aria-hidden="true">
-                            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="{{ $icon }}" /></svg>
+            <span class="po-overview__stats-scroll" tabindex="0" role="region" aria-label="Academic year overview metrics">
+                <span class="od-stats po-summary">
+                    @foreach($cards as [$label, $key, $modifier, $icon])
+                        <span class="od-stat po-stat {{ $modifier ? 'od-stat--' . $modifier : '' }}">
+                            <span class="po-stat__icon" aria-hidden="true">
+                                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="{{ $icon }}" /></svg>
+                            </span>
+                            <span>
+                                <span class="od-stat__label">{{ $label }}</span>
+                                <span class="od-stat__value">{{ $summary[$key] }}</span>
+                            </span>
                         </span>
-                        <span>
-                            <span class="od-stat__label">{{ $label }}</span>
-                            <span class="od-stat__value">{{ $summary[$key] }}</span>
-                        </span>
-                    </span>
-                @endforeach
+                    @endforeach
+                </span>
             </span>
         </summary>
 
-        <div class="po-overview__campuses">
-            <p class="od-card__sub">University-wide events are counted once, in their own row.</p>
+        <div class="po-overview__offices">
+            <p class="od-card__sub">Requests are grouped by the university office that submitted them.</p>
             <div class="od-table-wrap">
                 <table class="od-table po-overview__table">
                     <thead>
                         <tr>
-                            <th scope="col">Campus</th>
+                            <th scope="col">Office</th>
                             @foreach($cards as [$label])
                                 <th scope="col">{{ $label }}</th>
                             @endforeach
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach($campusSummaries as $campusName => $campusSummary)
+                        @foreach($officeSummaries as $officeName => $officeSummary)
                             <tr>
-                                <th scope="row" class="od-table__title">{{ $campusName }}</th>
+                                <th scope="row" class="od-table__title">{{ $officeName }}</th>
                                 @foreach($cards as [$label, $key, $modifier])
-                                    <td class="{{ $campusSummary[$key] && in_array($modifier, ['approved', 'pending', 'rejected']) ? 'od-text-' . $modifier : '' }}">{{ $campusSummary[$key] }}</td>
+                                    <td class="{{ $officeSummary[$key] && in_array($modifier, ['approved', 'pending', 'rejected']) ? 'od-text-' . $modifier : '' }}">{{ $officeSummary[$key] }}</td>
                                 @endforeach
                             </tr>
                         @endforeach
@@ -97,25 +102,21 @@
             <div class="od-card__head">
                 <div>
                     <h2 id="analytics-title" class="od-card__title">Analytics</h2>
-                    <p class="od-card__sub">Approved events{{ $selectedCampus ? ' for ' . $selectedCampus . ' and university-wide' : '' }}{{ ($filters['from'] ?? null) || ($filters['to'] ?? null) ? ' in the selected date range' : '' }}. University-wide events are counted once, in their own group.</p>
+                    <p class="od-card__sub">Approved events grouped by submitting office{{ $selectedOffice ? ' (' . $selectedOffice . ')' : '' }}{{ ($filters['from'] ?? null) || ($filters['to'] ?? null) ? ' in the selected date range' : '' }}.</p>
                 </div>
             </div>
             <div class="po-charts">
-                <figure class="po-chart-card">
-                    <figcaption>Events by campus</figcaption>
-                    <div class="po-chart"><canvas id="chart-by-campus" aria-label="Events by campus"></canvas></div>
+                <figure class="po-chart-card po-chart-card--office">
+                    <figcaption>Events by office</figcaption>
+                    <div class="po-chart po-chart--office"><canvas id="chart-by-office" aria-label="Events by office"></canvas></div>
                 </figure>
                 <figure class="po-chart-card">
-                    <figcaption>Events by category (SDG)</figcaption>
-                    <div class="po-chart"><canvas id="chart-by-category" aria-label="Events by category"></canvas></div>
-                </figure>
-                <figure class="po-chart-card">
-                    <figcaption>Campus event trends <span>· monthly</span></figcaption>
-                    <div class="po-chart"><canvas id="chart-trends" aria-label="Monthly campus event trends"></canvas></div>
+                    <figcaption>Office event trends <span>· monthly</span></figcaption>
+                    <div class="po-chart"><canvas id="chart-trends" aria-label="Monthly office event trends"></canvas></div>
                 </figure>
                 <figure class="po-chart-card">
                     <figcaption>Scheduling conflict overview <span>· {{ $summary['conflicts'] }} open · {{ $resolvedConflicts }} resolved{{ ($filters['from'] ?? null) || ($filters['to'] ?? null) ? ' in range' : '' }}</span></figcaption>
-                    <div class="po-chart"><canvas id="chart-conflicts" aria-label="Open conflicts by campus"></canvas></div>
+                    <div class="po-chart"><canvas id="chart-conflicts" aria-label="Open conflicts by office"></canvas></div>
                 </figure>
             </div>
         </section>
@@ -126,7 +127,6 @@
         <div class="od-card__head">
             <div>
                 <h2 class="od-card__title">Pending Approvals</h2>
-                <p class="od-card__sub">Campus-specific and university-wide submissions waiting for a decision.</p>
             </div>
             <a href="{{ route('planning_office.pending') }}" class="od-link">Open full review →</a>
         </div>
@@ -254,12 +254,7 @@
         <div class="od-card__head">
             <div>
                 <h2 class="od-card__title">Master Live Calendar</h2>
-                <p class="od-card__sub">Approved events{{ $selectedCampus ? ' for ' . $selectedCampus . ' (plus university-wide)' : ' across all campuses' }}.</p>
             </div>
-            <ul class="po-legend" aria-label="Calendar legend">
-                <li><span class="po-legend__dot po-ev--campus"></span>Campus-specific</li>
-                <li><span class="po-legend__dot po-ev--university"></span>University-wide</li>
-            </ul>
         </div>
         <div id="planning-office-calendar" class="od-calendar"></div>
     </section>
@@ -411,22 +406,41 @@
             // ---- Analytics ----
             if (typeof Chart === 'undefined') return;
             var charts = @json($charts);
-            var navy = '#4a5690', gold = '#f2c318';
             var seriesColors = ['#4a5690', '#e0a800', '#14b8a6', '#047857', '#8d98d4'];
             var countTicks = { beginAtZero: true, ticks: { precision: 0 } };
             Chart.defaults.font.family = "'Inter', system-ui, sans-serif";
             Chart.defaults.color = '#64698a';
 
-            new Chart(document.getElementById('chart-by-campus'), {
+            new Chart(document.getElementById('chart-by-office'), {
                 type: 'bar',
-                data: { labels: charts.byCampus.labels, datasets: [{ label: 'Events', data: charts.byCampus.values, backgroundColor: charts.byCampus.labels.map(function (l, i) { return seriesColors[i % seriesColors.length]; }), borderRadius: 8 }] },
-                options: { maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: countTicks } }
-            });
-
-            new Chart(document.getElementById('chart-by-category'), {
-                type: 'bar',
-                data: { labels: charts.byCategory.labels, datasets: [{ label: 'Events', data: charts.byCategory.values, backgroundColor: gold, borderRadius: 6 }] },
-                options: { indexAxis: 'y', maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: countTicks } }
+                data: { labels: charts.byOffice.labels, datasets: [{ label: 'Events', data: charts.byOffice.values, backgroundColor: charts.byOffice.labels.map(function (l, i) { return seriesColors[i % seriesColors.length]; }), borderRadius: 8 }] },
+                options: {
+                    indexAxis: 'y',
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: countTicks,
+                        y: {
+                            ticks: {
+                                autoSkip: false,
+                                callback: function (value) {
+                                    var words = this.getLabelForValue(value).split(' ');
+                                    var lines = [];
+                                    var line = '';
+                                    words.forEach(function (word) {
+                                        if (line && (line + ' ' + word).length > 32) {
+                                            lines.push(line);
+                                            line = '';
+                                        }
+                                        line += (line ? ' ' : '') + word;
+                                    });
+                                    if (line) lines.push(line);
+                                    return lines;
+                                }
+                            }
+                        }
+                    }
+                }
             });
 
             new Chart(document.getElementById('chart-trends'), {

@@ -31,7 +31,7 @@ test('planning office dashboard keeps the live master calendar visible', functio
     $this->get('/superadmin/calendar')->assertNotFound();
 });
 
-test('planning office dashboard shows campus event totals and upcoming events summary', function () {
+test('planning office dashboard shows office event totals and upcoming events summary', function () {
     $user = User::factory()->create([
         'email' => 'planning-office-summary@example.com',
         'role' => 'planning_office',
@@ -91,9 +91,9 @@ test('planning office dashboard shows campus event totals and upcoming events su
     $response->assertSee('Alaminos Campus');
     $response->assertSee('Lingayen Campus');
     $response->assertSee('Binmaley Campus');
-    $response->assertSee('University-wide events');
+    $response->assertSee('OFFICE OF THE PRESIDENT (OP)');
     $response->assertSee('Upcoming events');
-    $response->assertSee('Campus event trends');
+    $response->assertSee('Office event trends');
     $response->assertSee('1', false);
 });
 
@@ -135,8 +135,8 @@ test('office request submission stores the campus from which the request came', 
         'title' => 'Campus Meeting',
         'venue_name' => 'Lingayen Hall',
         'campus' => 'Lingayen Campus',
-        'start_datetime' => now()->addDay()->format('Y-m-d\TH:i'),
-        'end_datetime' => now()->addDay()->addHour()->format('Y-m-d\TH:i'),
+        'start_datetime' => now()->addDay()->setTime(10, 0)->format('Y-m-d\TH:i'),
+        'end_datetime' => now()->addDay()->setTime(11, 0)->format('Y-m-d\TH:i'),
         'description' => 'Request from Lingayen',
     ]);
 

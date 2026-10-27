@@ -12,16 +12,13 @@ use Illuminate\Support\Collection;
  * Builds everything the Planning Office dashboard shows, from real event requests.
  *
  * Filters:
- *  - campus: one of User::MAIN_CAMPUSES, or null for all campuses. A campus filter keeps
- *    that campus's events plus university-wide events (they concern every campus).
+ *  - office: one of the university offices, or null for all submitting offices.
  *  - from / to: events whose schedule overlaps the range.
  *
- * University-wide events are counted once, in their own bucket, never once per campus.
+ * Requests are grouped by the office account that submitted them.
  */
 class PlanningOfficeDashboard
 {
-    public const UNIVERSITY_WIDE_LABEL = 'University-wide events';
-
     /** Event-related activity shown in "Recent activity" (not profile/password changes). */
     private const ACTIVITY_ACTIONS = ['submitted', 'edited', 'cancelled', 'approved', 'rejected', 'returned', 'rescheduled', 'conflict_resolved'];
 
@@ -37,21 +34,23 @@ class PlanningOfficeDashboard
     {
     }
 
-    public function build(?string $campus, ?Carbon $from, ?Carbon $to): array
+    public function build(?string $office, ?Carbon $from, ?Carbon $to): array
     {
         $now = now();
+        [$academicYearStart, $academicYearEnd] = $this->academicYearRange($now);
         $from = $from?->copy()->startOfDay();
         $to = $to?->copy()->endOfDay();
 
-        $inCampus = fn (EventRequest $e) => ! $campus
-            || $e->scope() === EventRequest::SCOPE_UNIVERSITY_WIDE
-            || $e->venueCampus() === $campus;
+        $inOffice = fn (EventRequest $e) => ! $office || $this->officeBucket($e) === $office;
         $inRange = fn (EventRequest $e) => (! $from || $e->end_datetime >= $from)
             && (! $to || $e->start_datetime <= $to);
 
-        $campusEvents = EventRequest::orderBy('start_datetime')->get()->filter($inCampus)->values();
-        $filtered = $campusEvents->filter($inRange)->values();
+        $officeEvents = EventRequest::orderBy('start_datetime')->get()->filter($inOffice)->values();
+        $overviewEvents = $officeEvents->filter(fn (EventRequest $e) => $e->end_datetime >= $academicYearStart
+            && $e->start_datetime <= $academicYearEnd)->values();
+        $filtered = $officeEvents->filter($inRange)->values();
         $approved = $filtered->where('status', 'approved')->values();
+        $overviewApproved = $overviewEvents->where('status', 'approved')->values();
 
         // ---- Review queue + conflicts ----
         $queue = $filtered->whereIn('status', EventRequest::REVIEW_STATUSES)
@@ -59,6 +58,14 @@ class PlanningOfficeDashboard
                 fn ($a, $b) => ($a->status === 'conflict' ? 0 : 1) <=> ($b->status === 'conflict' ? 0 : 1),
                 fn ($a, $b) => $a->created_at <=> $b->created_at,
             ])
+            ->values()
+            ->each(function (EventRequest $e) {
+                $e->setAttribute('conflicts', $this->conflictChecker->find(
+                    $e->venue_name, $e->campus, $e->start_datetime, $e->end_datetime, $e->id
+                ));
+            });
+
+        $overviewQueue = $overviewEvents->whereIn('status', EventRequest::REVIEW_STATUSES)
             ->values()
             ->each(function (EventRequest $e) {
                 $e->setAttribute('conflicts', $this->conflictChecker->find(
@@ -79,23 +86,28 @@ class PlanningOfficeDashboard
             ->values();
 
         $conflictRequests = $conflicts->pluck('request');
+        $overviewConflictRequests = $overviewQueue->filter(fn (EventRequest $e) => $e->status === 'conflict' || $e->conflicts->isNotEmpty());
 
         return [
-            'summary' => $this->summary($approved, $queue, $conflictRequests, $now),
-            // Same numbers per campus; university-wide events in their own row (counted once)
-            'campusSummaries' => collect($this->campusBuckets($filtered))
+            'summary' => $this->summary($overviewApproved, $overviewQueue, $overviewConflictRequests, $now),
+            'academicYear' => [
+                'label' => $academicYearStart->format('Y') . '-' . $academicYearEnd->format('Y'),
+                'start' => $academicYearStart,
+                'end' => $academicYearEnd,
+            ],
+            'officeSummaries' => collect($this->officeBuckets($overviewEvents))
                 ->mapWithKeys(fn ($bucket) => [$bucket => $this->summary(
-                    $approved->filter(fn ($e) => $this->bucketOf($e) === $bucket),
-                    $queue->filter(fn ($e) => $this->bucketOf($e) === $bucket),
-                    $conflictRequests->filter(fn ($e) => $this->bucketOf($e) === $bucket),
+                    $overviewApproved->filter(fn ($e) => $this->officeBucket($e) === $bucket),
+                    $overviewQueue->filter(fn ($e) => $this->officeBucket($e) === $bucket),
+                    $overviewConflictRequests->filter(fn ($e) => $this->officeBucket($e) === $bucket),
                     $now,
                 )]),
             'queue' => $queue,
             'conflicts' => $conflicts,
             'upcoming' => $approved->filter(fn ($e) => $e->start_datetime > $now)->take(7)->values(),
-            // The calendar is navigated by month, so it ignores the date range (campus filter still applies)
-            'calendarEvents' => $this->calendarEvents($campusEvents),
-            'charts' => $this->charts($approved, $conflicts, $from, $to),
+            // The calendar is navigated by month, so it ignores the date range (office filter still applies)
+            'calendarEvents' => $this->calendarEvents($officeEvents),
+            'charts' => $this->charts($filtered, $approved, $conflicts, $from, $to),
             'resolvedConflicts' => ActivityLog::where('action', 'conflict_resolved')
                 ->when($from, fn ($q) => $q->where('created_at', '>=', $from))
                 ->when($to, fn ($q) => $q->where('created_at', '<=', $to))
@@ -103,6 +115,20 @@ class PlanningOfficeDashboard
             'activity' => ActivityLog::whereIn('action', self::ACTIVITY_ACTIONS)->latest()->limit(10)->get(),
             'accountNames' => User::whereIn('role', ['office', 'planning_office'])->pluck('name', 'email'),
         ];
+    }
+
+    /** @return array{Carbon, Carbon} */
+    public static function academicYearRange(?Carbon $now = null): array
+    {
+        $now ??= now();
+        $start = $now->copy()->setDate($now->year, 8, 10)->startOfDay();
+        if ($now->lt($start)) {
+            $start->subYear();
+        }
+
+        $end = $start->copy()->setDate($start->year + 1, 5, 28)->endOfDay();
+
+        return [$start, $end];
     }
 
     /** The six overview numbers for one set of events. */
@@ -118,22 +144,18 @@ class PlanningOfficeDashboard
         ];
     }
 
-    /** Campus group of an event: one main campus, university-wide, or "Other campuses". */
-    private function bucketOf(EventRequest $e): string
+    /** Submitting office for an event, or "Other offices" when it is not one of the listed university offices. */
+    private function officeBucket(EventRequest $e): string
     {
-        return match (true) {
-            $e->scope() === EventRequest::SCOPE_UNIVERSITY_WIDE => self::UNIVERSITY_WIDE_LABEL,
-            in_array($e->venueCampus(), User::MAIN_CAMPUSES, true) => $e->venueCampus(),
-            default => 'Other campuses',
-        };
+        return User::UNIVERSITY_OFFICE_ACCOUNT_LABELS[$e->email] ?? 'Other offices';
     }
 
-    /** Main campuses + university-wide, plus "Other campuses" only when some event falls there. */
-    private function campusBuckets(Collection $events): array
+    /** Listed university offices, plus "Other offices" only when a request falls outside those accounts. */
+    private function officeBuckets(Collection $events): array
     {
-        $buckets = [...User::MAIN_CAMPUSES, self::UNIVERSITY_WIDE_LABEL];
-        if ($events->contains(fn ($e) => $this->bucketOf($e) === 'Other campuses')) {
-            $buckets[] = 'Other campuses';
+        $buckets = array_values(User::UNIVERSITY_OFFICE_ACCOUNT_LABELS);
+        if ($events->contains(fn ($e) => $this->officeBucket($e) === 'Other offices')) {
+            $buckets[] = 'Other offices';
         }
 
         return $buckets;
@@ -184,18 +206,13 @@ class PlanningOfficeDashboard
             ->values();
     }
 
-    private function charts(Collection $approved, Collection $conflicts, ?Carbon $from, ?Carbon $to): array
+    private function charts(Collection $requests, Collection $approved, Collection $conflicts, ?Carbon $from, ?Carbon $to): array
     {
-        $bucketOf = fn (EventRequest $e) => $this->bucketOf($e);
-        $buckets = $this->campusBuckets($approved);
+        $bucketOf = fn (EventRequest $e) => $this->officeBucket($e);
+        $buckets = $this->officeBuckets($requests);
 
-        // Events by campus (each event in exactly one bucket)
-        $byCampus = collect($buckets)->mapWithKeys(fn ($b) => [$b => $approved->filter(fn ($e) => $bucketOf($e) === $b)->count()]);
-
-        // Events by category (SDG)
-        $byCategory = $approved->groupBy(fn ($e) => $e->sdg_number ? 'SDG ' . $e->sdg_number : 'Not aligned')
-            ->map->count()
-            ->sortDesc();
+        // Events by submitting office (each event in exactly one bucket)
+        $byOffice = collect($buckets)->mapWithKeys(fn ($b) => [$b => $approved->filter(fn ($e) => $bucketOf($e) === $b)->count()]);
 
         // Monthly trends: the selected range, or the 12 months around today
         $start = ($from ?? now()->subMonths(6))->copy()->startOfMonth();
@@ -213,22 +230,15 @@ class PlanningOfficeDashboard
                 ->count())->all(),
         ]);
 
-        // Open conflicts by campus
-        $conflictBucket = fn (EventRequest $e) => match (true) {
-            $e->venueCampus() === 'All Campus' => 'All campuses',
-            in_array($e->venueCampus(), User::MAIN_CAMPUSES, true) => $e->venueCampus(),
-            default => 'Other campuses',
-        };
-        $conflictsByCampus = $conflicts->countBy(fn ($row) => $conflictBucket($row['request']));
-        $conflictsByCampus = collect([...User::MAIN_CAMPUSES, 'All campuses', 'Other campuses'])
-            ->filter(fn ($c) => in_array($c, User::MAIN_CAMPUSES, true) || $conflictsByCampus->has($c))
-            ->mapWithKeys(fn ($c) => [$c => $conflictsByCampus->get($c, 0)]);
+        // Open conflicts by submitting office
+        $conflictsByOffice = $conflicts->countBy(fn ($row) => $bucketOf($row['request']));
+        $conflictsByOffice = collect($buckets)
+            ->mapWithKeys(fn ($office) => [$office => $conflictsByOffice->get($office, 0)]);
 
         return [
-            'byCampus' => ['labels' => $byCampus->keys()->all(), 'values' => $byCampus->values()->all()],
-            'byCategory' => ['labels' => $byCategory->keys()->all(), 'values' => $byCategory->values()->all()],
+            'byOffice' => ['labels' => $byOffice->keys()->all(), 'values' => $byOffice->values()->all()],
             'trends' => ['labels' => array_values($months), 'series' => $trendSeries->all()],
-            'conflicts' => ['labels' => $conflictsByCampus->keys()->all(), 'values' => $conflictsByCampus->values()->all()],
+            'conflicts' => ['labels' => $conflictsByOffice->keys()->all(), 'values' => $conflictsByOffice->values()->all()],
         ];
     }
 }

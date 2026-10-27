@@ -19,13 +19,13 @@ class PlanningOfficeController extends Controller
     public function dashboard(Request $request, PlanningOfficeDashboard $dashboard)
     {
         $filters = $request->validate([
-            'campus' => ['nullable', Rule::in(User::MAIN_CAMPUSES)],
+            'office' => ['nullable', Rule::in(array_values(User::UNIVERSITY_OFFICE_ACCOUNT_LABELS))],
             'from' => ['nullable', 'date'],
             'to' => ['nullable', 'date', 'after_or_equal:from'],
         ]);
 
         $data = $dashboard->build(
-            $filters['campus'] ?? null,
+            $filters['office'] ?? null,
             isset($filters['from']) ? Carbon::parse($filters['from']) : null,
             isset($filters['to']) ? Carbon::parse($filters['to']) : null,
         );
@@ -33,13 +33,72 @@ class PlanningOfficeController extends Controller
         return view('superadmin.dashboard', $data + ['filters' => array_filter($filters)]);
     }
 
+    public function search(Request $request)
+    {
+        $validated = $request->validate([
+            'q' => ['required', 'string', 'max:255'],
+        ]);
+
+        $query = trim($validated['q']);
+        $like = '%' . $query . '%';
+
+        $offices = User::query()
+            ->where('role', 'office')
+            ->where(function ($users) use ($like, $query) {
+                $users->where('name', 'like', $like)
+                    ->orWhere('campus', 'like', $like)
+                    ->orWhere('email', 'like', $like);
+
+                foreach (User::UNIVERSITY_OFFICE_ACCOUNT_LABELS as $email => $label) {
+                    if (str_contains(mb_strtolower($label), mb_strtolower($query))) {
+                        $users->orWhere('email', $email);
+                    }
+                }
+            })
+            ->orderBy('name')
+            ->limit(50)
+            ->get();
+
+        $officeEmails = $offices->pluck('email')->all();
+        $events = EventRequest::query()
+            ->where(function ($requests) use ($like, $officeEmails) {
+                $requests->where('title', 'like', $like)
+                    ->orWhere('name', 'like', $like)
+                    ->orWhere('venue_name', 'like', $like)
+                    ->orWhere('email', 'like', $like);
+
+                if ($officeEmails !== []) {
+                    $requests->orWhereIn('email', $officeEmails);
+                }
+            })
+            ->orderByDesc('start_datetime')
+            ->paginate(20)
+            ->withQueryString();
+
+        $officeNames = User::whereIn('role', ['office', 'planning_office'])->pluck('name', 'email');
+
+        return view('superadmin.search', compact('query', 'offices', 'events', 'officeNames'));
+    }
+
     public function showOffice(User $office)
     {
         abort_unless($office->role === 'office', 404);
 
+        [$academicYearStart, $academicYearEnd] = PlanningOfficeDashboard::academicYearRange();
         $requests = EventRequest::where('email', $office->email)
             ->orderByDesc('created_at')
             ->get();
+        $approvedAcademicYearEvents = EventRequest::where('email', $office->email)
+            ->where('status', 'approved')
+            ->where('end_datetime', '>=', $academicYearStart)
+            ->where('start_datetime', '<=', $academicYearEnd)
+            ->orderBy('start_datetime')
+            ->get();
+        $academicYear = [
+            'label' => $academicYearStart->format('Y') . '-' . $academicYearEnd->format('Y'),
+            'start' => $academicYearStart,
+            'end' => $academicYearEnd,
+        ];
 
         $statusCounts = [
             'pending' => $requests->whereIn('status', ['pending', 'conflict'])->count(),
@@ -50,7 +109,14 @@ class PlanningOfficeController extends Controller
 
         $recentActivity = ActivityLog::where('email', $office->email)->latest()->limit(10)->get();
 
-        return view('superadmin.office', compact('office', 'requests', 'statusCounts', 'recentActivity'));
+        return view('superadmin.office', compact(
+            'office',
+            'requests',
+            'statusCounts',
+            'recentActivity',
+            'approvedAcademicYearEvents',
+            'academicYear',
+        ));
     }
 
     public function updateOfficeCampus(Request $request, User $office)

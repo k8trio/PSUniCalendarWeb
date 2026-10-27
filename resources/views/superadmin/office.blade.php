@@ -28,6 +28,35 @@
         @endforeach
     </section>
 
+    <section class="od-card">
+        <div class="od-card__head">
+            <div>
+                <h2 class="od-card__title">Approved events · Academic Year {{ $academicYear['label'] }}</h2>
+                <p class="od-card__sub">{{ $academicYear['start']->format('M j, Y') }} – {{ $academicYear['end']->format('M j, Y') }}</p>
+            </div>
+            <span class="od-pill">{{ $approvedAcademicYearEvents->count() }}</span>
+        </div>
+        @if($approvedAcademicYearEvents->isEmpty())
+            <p class="od-empty">No approved events for this office in the current academic year.</p>
+        @else
+            <ul class="po-list">
+                @foreach($approvedAcademicYearEvents as $event)
+                    <li class="po-list__item">
+                        <div>
+                            <p class="po-list__title">{{ $event->title }}</p>
+                            <p class="po-list__meta">{{ $event->venue_name }} · {{ $event->venueCampus() }}</p>
+                        </div>
+                        <div class="po-list__side">
+                            <p class="po-list__date">{{ $event->start_datetime->format('D, M j, Y') }}</p>
+                            <p>{{ $event->start_datetime->format('g:i A') }} – {{ $event->end_datetime->format('g:i A') }}</p>
+                            <span class="od-badge od-badge--approved">Approved</span>
+                        </div>
+                    </li>
+                @endforeach
+            </ul>
+        @endif
+    </section>
+
     <div class="od-two-col">
         <section class="od-card">
             <div class="od-card__head">

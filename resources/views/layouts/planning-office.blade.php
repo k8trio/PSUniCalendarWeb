@@ -7,7 +7,6 @@
         ? mb_strtoupper($nameAbbreviation)
         : mb_strtoupper(mb_substr($nameWords[0], 0, 1) . (count($nameWords) > 1 ? mb_substr(end($nameWords), 0, 1) : ''));
 
-    $campusShortName = fn ($campus) => str_replace(' Campus', '', $campus);
     $currentOfficeId = (int) optional(request()->route('office'))->id;
     $navClass = fn (bool $active) => 'od-nav-link' . ($active ? ' is-active' : '');
 @endphp
@@ -58,15 +57,15 @@
                 </a>
             </nav>
 
-            {{-- Offices, grouped by campus --}}
+            {{-- University offices only; campus groups are omitted. --}}
             <p class="od-nav-label">Offices</p>
             <nav class="od-nav">
-                @foreach($sidebarOfficesByCampus as $campus => $offices)
-                    @php($campusOpen = $offices->contains('id', $currentOfficeId))
-                    <details class="po-group" {{ $campusOpen ? 'open' : '' }}>
-                        <summary class="{{ $navClass($campusOpen) }}">
+                @foreach($sidebarOfficeGroups as $officeGroup => $offices)
+                    @php($officeGroupOpen = $offices->contains('id', $currentOfficeId))
+                    <details class="po-group" {{ $officeGroupOpen ? 'open' : '' }}>
+                        <summary class="{{ $navClass($officeGroupOpen) }}">
                             <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 21h16.5M4.5 3h15M5.25 3v18m13.5-18v18M9 6.75h1.5m-1.5 3h1.5m-1.5 3h1.5m3-6H15m-1.5 3H15m-1.5 3H15M9 21v-3.375c0-.621.504-1.125 1.125-1.125h3.75c.621 0 1.125.504 1.125 1.125V21" /></svg>
-                            <span class="od-nav-text po-group__name">{{ $campusShortName($campus) }}</span>
+                            <span class="od-nav-text po-group__name">{{ $officeGroup }}</span>
                             <span class="po-nav-count po-nav-count--muted">{{ $offices->count() }}</span>
                         </summary>
                         <div class="po-subnav">
@@ -130,6 +129,32 @@
 
                 <div class="od-topbar__actions">
                     @yield('topbar-actions')
+                    @if(request()->routeIs('planning_office.notifications', 'planning_office.search'))
+                        <a href="{{ route('planning_office.dashboard') }}" class="od-btn od-btn--ghost od-btn--sm po-topbar-back">
+                            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
+                            </svg>
+                            Back to dashboard
+                        </a>
+                    @endif
+                    <form action="{{ route('planning_office.search') }}" method="GET" class="po-global-search" role="search">
+                        <label class="sr-only" for="planning-office-search">Search offices and events</label>
+                        <input
+                            id="planning-office-search"
+                            type="search"
+                            name="q"
+                            value="{{ request('q') }}"
+                            placeholder="Search offices, events..."
+                            aria-label="Search offices, organizers, event titles, and venues"
+                            required
+                        >
+                        <button type="submit" aria-label="Search">
+                            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                <circle cx="10.8" cy="10.8" r="6.8"></circle>
+                                <path stroke-linecap="round" d="m16 16 4.5 4.5"></path>
+                            </svg>
+                        </button>
+                    </form>
                     <a href="{{ route('planning_office.notifications') }}" class="od-icon-btn" aria-label="Notifications{{ $sidebarNotificationCount ? ' (' . $sidebarNotificationCount . ' awaiting review)' : '' }}">
                         <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.4-1.4A2 2 0 0118 14.2V11a6 6 0 10-12 0v3.2a2 2 0 01-.6 1.4L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />

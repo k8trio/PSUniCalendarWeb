@@ -17,23 +17,30 @@ class User extends Authenticatable
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
 
-    /**
-     * PSU campuses, in display order (alphabetical). Single source for every campus
-     * dropdown, filter, sidebar group and chart.
-     */
+    /** PSU campuses used by event forms and calendar filters. */
     public const CAMPUSES = [
-        'OFFICE OF THE PRESIDENT (OP)',
-        'OFFICE OF THE VICE PRESIDENT FOR ACADEMICS AND STUDENT SERVICES (OVPASS)',
-        'OFFICE OF THE VICE PRESIDENT FOR RESEARCH, EXTENSION, AND INNOVATION (OVPREI)',
-        'OFFICE OF THE VICE PRESIDENT FOR ADMINISRATION AND FINANCE MANAGEMENT (OVPAFM)',
-        'OFFICE OF THE VICE PRESIDENT FOR QUALITY ASSURANCE (OVPQA)',
-        'OFFICE OF THE VICE PRESIDENT FOR LOCAL & INTERNATIONAL AFFAIRS (OVPLIA)',
+        'Alaminos Campus',
+        'Asingan Campus',
+        'Bayambang Campus',
+        'Binmaley Campus',
+        'Infanta Campus',
+        'Lingayen Campus',
+        'San Carlos Campus',
+        'Santa Maria Campus',
+        'Urdaneta Campus',
     ];
 
-    /**
-     * Campuses with their own office account; the Planning Office pages (sidebar,
-     * campus cards, chart, filters) show only these.
-     */
+    /** University offices shown in Planning Office dashboard summaries. */
+    public const UNIVERSITY_OFFICE_ACCOUNT_LABELS = [
+        'op@psu.local' => 'OFFICE OF THE PRESIDENT (OP)',
+        'ovpaass@psu.local' => 'OFFICE OF THE VICE PRESIDENT FOR ACADEMICS AND STUDENT SERVICES (OVPASS)',
+        'ovprei@psu.local' => 'OFFICE OF THE VICE PRESIDENT FOR RESEARCH, EXTENSION, AND INNOVATION (OVPREI)',
+        'ovpafm@psu.local' => 'OFFICE OF THE VICE PRESIDENT FOR ADMINISRATION AND FINANCE MANAGEMENT (OVPAFM)',
+        'ovpqa@psu.local' => 'OFFICE OF THE VICE PRESIDENT FOR QUALITY ASSURANCE (OVPQA)',
+        'ovplia@psu.local' => 'OFFICE OF THE VICE PRESIDENT FOR LOCAL & INTERNATIONAL AFFAIRS (OVPLIA)',
+    ];
+
+    /** Campuses with their own office account. */
     public const MAIN_CAMPUSES = ['Alaminos Campus', 'Binmaley Campus', 'Lingayen Campus'];
 
     /**
@@ -41,10 +48,11 @@ class User extends Authenticatable
      */
     public const UNIVERSITY_OFFICES = 'University Offices';
 
-    /**
-     * Groups an office account can be listed under in the Planning Office sidebar.
-     */
+    /** Groups available when assigning an office account to a campus or university-wide group. */
     public const OFFICE_GROUPS = [self::UNIVERSITY_OFFICES, ...self::MAIN_CAMPUSES];
+
+    /** Groups displayed in the Planning Office sidebar. */
+    public const SIDEBAR_OFFICE_GROUPS = [self::UNIVERSITY_OFFICES];
 
     /**
      * Is this account tied to one campus? University Offices (and offices with no campus set)

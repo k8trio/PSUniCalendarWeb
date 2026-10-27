@@ -54,6 +54,7 @@ Route::middleware(['auth', 'role:planning_office'])->prefix('planning-office')->
     Route::get('/', [PlanningOfficeController::class, 'dashboard'])->name('planning_office.dashboard');
     Route::get('/calendar', [PlanningOfficeController::class, 'dashboard'])->name('planning_office.calendar');
     Route::get('/pending-approvals', [PlanningOfficeController::class, 'pendingApprovals'])->name('planning_office.pending');
+    Route::get('/search', [PlanningOfficeController::class, 'search'])->name('planning_office.search');
     Route::post('/approve/{id}', [EventApprovalController::class, 'approve'])->name('planning_office.approve');
     Route::post('/reject/{id}', [EventApprovalController::class, 'reject'])->name('planning_office.reject');
     Route::post('/return/{id}', [EventApprovalController::class, 'returnForRevision'])->name('planning_office.return');

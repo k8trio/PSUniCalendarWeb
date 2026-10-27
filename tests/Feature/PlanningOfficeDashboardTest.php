@@ -4,6 +4,7 @@ use App\Models\ActivityLog;
 use App\Models\EventRequest;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 
 uses(RefreshDatabase::class);
 
@@ -27,16 +28,102 @@ beforeEach(function () {
     $this->planning = User::factory()->create(['role' => 'planning_office', 'email' => 'planning@psu.local']);
 });
 
-test('dashboard shows real counts and counts university-wide events once', function () {
-    dashboardEvent(['title' => 'Lingayen Intrams']);
-    dashboardEvent(['title' => 'University Meet', 'is_university_wide' => true, 'venue_name' => 'Plaza']);
-    dashboardEvent(['title' => 'Finished Seminar', 'start_datetime' => now()->subDays(5)->setTime(9, 0)]);
-    dashboardEvent(['title' => 'Alaminos Request', 'campus' => 'Alaminos Campus', 'venue_name' => 'Alaminos Gym', 'status' => 'pending']);
+test('planning office search finds offices and event details', function () {
+    $office = User::factory()->create([
+        'name' => 'Office of the President',
+        'email' => 'op@psu.local',
+        'role' => 'office',
+        'campus' => User::UNIVERSITY_OFFICES,
+    ]);
+    dashboardEvent([
+        'name' => 'Alex Event Organizer',
+        'email' => $office->email,
+        'title' => 'Planning Symposium',
+        'venue_name' => 'Innovation Hall',
+    ]);
+
+    $this->actingAs($this->planning)->get('/planning-office/search?q=President')
+        ->assertOk()
+        ->assertSee('Back to dashboard')
+        ->assertSee('Office of the President')
+        ->assertSee('Planning Symposium');
+
+    $this->get('/planning-office/search?q=Alex+Event+Organizer')
+        ->assertOk()
+        ->assertSee('Planning Symposium')
+        ->assertSee('Innovation Hall')
+        ->assertSee('Alex Event Organizer');
+
+    $this->get('/planning-office/search?q=Planning+Symposium')
+        ->assertOk()
+        ->assertSee('Planning Symposium');
+
+    $this->get('/planning-office/search?q=Innovation+Hall')
+        ->assertOk()
+        ->assertSee('Planning Symposium')
+        ->assertSee('Innovation Hall');
+});
+
+test('planning office notifications include a back-to-dashboard link', function () {
+    $this->actingAs($this->planning)->get('/planning-office/notifications')
+        ->assertOk()
+        ->assertSee('Back to dashboard');
+});
+
+test('planning office search shows one generic message when there are no results', function () {
+    $this->actingAs($this->planning)->get('/planning-office/search?q=NoMatchingResult123')
+        ->assertOk()
+        ->assertSee('No results found.')
+        ->assertDontSee('No offices match this search.')
+        ->assertDontSee('No events match this search.')
+        ->assertDontSee('<h2 class="od-card__title">Offices</h2>', false)
+        ->assertDontSee('<h2 class="od-card__title">Events</h2>', false);
+});
+
+test('office account details show approved events scheduled in the academic year', function () {
+    $this->travelTo(Carbon::parse('2026-10-27 12:00:00'));
+    $office = User::factory()->create([
+        'name' => 'Office of the President',
+        'email' => 'op@psu.local',
+        'role' => 'office',
+        'campus' => User::UNIVERSITY_OFFICES,
+    ]);
+
+    dashboardEvent([
+        'email' => $office->email,
+        'title' => 'Academic Year Approved Event',
+        'start_datetime' => Carbon::parse('2027-05-28 10:00:00'),
+    ]);
+    dashboardEvent([
+        'email' => $office->email,
+        'title' => 'Outside Academic Year Approved Event',
+        'start_datetime' => Carbon::parse('2027-05-29 10:00:00'),
+    ]);
+
+    $response = $this->actingAs($this->planning)
+        ->get("/planning-office/offices/{$office->id}")
+        ->assertOk()
+        ->assertSee('Approved events · Academic Year 2026-2027')
+        ->assertSee('Academic Year Approved Event');
+
+    expect($response->viewData('approvedAcademicYearEvents')->pluck('title')->all())
+        ->toBe(['Academic Year Approved Event']);
+});
+
+test('dashboard groups event totals by submitting university office', function () {
+    dashboardEvent(['title' => 'Lingayen Intrams', 'email' => 'op@psu.local']);
+    dashboardEvent(['title' => 'University Meet', 'email' => 'op@psu.local', 'is_university_wide' => true, 'venue_name' => 'Plaza']);
+    dashboardEvent(['title' => 'Finished Seminar', 'email' => 'ovprei@psu.local', 'start_datetime' => now()->subDays(5)->setTime(9, 0)]);
+    dashboardEvent(['title' => 'Alaminos Request', 'email' => 'ovpaass@psu.local', 'campus' => 'Alaminos Campus', 'venue_name' => 'Alaminos Gym', 'status' => 'pending']);
 
     $response = $this->actingAs($this->planning)->get('/planning-office')->assertOk()
         ->assertSee('Planning Office Dashboard')
         ->assertSee('Alaminos Request')
-        ->assertSee('Campus-specific');
+        ->assertSee('Campus-specific')
+        ->assertSee('Events by office')
+        ->assertDontSee('Events by category (SDG)');
+
+    expect($response->viewData('charts'))->not->toHaveKey('byCategory');
 
     $summary = $response->viewData('summary');
     expect($summary['total'])->toBe(3)
@@ -44,44 +131,89 @@ test('dashboard shows real counts and counts university-wide events once', funct
         ->and($summary['completed'])->toBe(1)
         ->and($summary['pending'])->toBe(1);
 
-    $byCampus = array_combine($response->viewData('charts')['byCampus']['labels'], $response->viewData('charts')['byCampus']['values']);
-    expect($byCampus['Lingayen Campus'])->toBe(2)
-        ->and($byCampus['University-wide events'])->toBe(1)
-        ->and(array_sum($byCampus))->toBe(3);
+    $byOffice = array_combine($response->viewData('charts')['byOffice']['labels'], $response->viewData('charts')['byOffice']['values']);
+    expect($byOffice['OFFICE OF THE PRESIDENT (OP)'])->toBe(2)
+        ->and($byOffice['OFFICE OF THE VICE PRESIDENT FOR RESEARCH, EXTENSION, AND INNOVATION (OVPREI)'])->toBe(1)
+        ->and(array_sum($byOffice))->toBe(3);
 });
 
-test('overview breaks the numbers down per campus, with university-wide events in their own row', function () {
-    dashboardEvent(['title' => 'Lingayen Intrams']);
-    dashboardEvent(['title' => 'University Meet', 'is_university_wide' => true, 'venue_name' => 'Plaza']);
-    dashboardEvent(['title' => 'Alaminos Request', 'campus' => 'Alaminos Campus', 'venue_name' => 'Alaminos Gym', 'status' => 'pending']);
+test('overview breaks the numbers down by university office', function () {
+    dashboardEvent(['title' => 'Lingayen Intrams', 'email' => 'op@psu.local']);
+    dashboardEvent(['title' => 'University Meet', 'email' => 'op@psu.local', 'is_university_wide' => true, 'venue_name' => 'Plaza']);
+    dashboardEvent(['title' => 'Alaminos Request', 'email' => 'ovpaass@psu.local', 'campus' => 'Alaminos Campus', 'venue_name' => 'Alaminos Gym', 'status' => 'pending']);
 
     $response = $this->actingAs($this->planning)->get('/planning-office')->assertOk()
-        ->assertSee('Show by campus')
+        ->assertSee('Show by office')
         ->assertDontSee('Apply filters');
 
-    $campuses = $response->viewData('campusSummaries');
-    expect($campuses->keys()->all())->toBe(['Alaminos Campus', 'Binmaley Campus', 'Lingayen Campus', 'University-wide events'])
-        ->and($campuses['Lingayen Campus']['total'])->toBe(1)
-        ->and($campuses['University-wide events']['total'])->toBe(1)
-        ->and($campuses['Alaminos Campus']['pending'])->toBe(1)
-        ->and($campuses['Binmaley Campus']['total'])->toBe(0)
-        ->and($campuses->sum('total'))->toBe($response->viewData('summary')['total']);
+    $offices = $response->viewData('officeSummaries');
+    expect($offices->keys()->all())->toBe(array_values(User::UNIVERSITY_OFFICE_ACCOUNT_LABELS))
+        ->and($offices['OFFICE OF THE PRESIDENT (OP)']['total'])->toBe(2)
+        ->and($offices['OFFICE OF THE VICE PRESIDENT FOR ACADEMICS AND STUDENT SERVICES (OVPASS)']['pending'])->toBe(1)
+        ->and($offices['OFFICE OF THE VICE PRESIDENT FOR QUALITY ASSURANCE (OVPQA)']['total'])->toBe(0)
+        ->and($offices->sum('total'))->toBe($response->viewData('summary')['total']);
 });
 
-test('campus filter keeps that campus plus university-wide events', function () {
-    dashboardEvent(['title' => 'Lingayen Intrams']);
-    dashboardEvent(['title' => 'Binmaley Fair', 'campus' => 'Binmaley Campus', 'venue_name' => 'Binmaley Hall']);
-    dashboardEvent(['title' => 'University Meet', 'is_university_wide' => true, 'venue_name' => 'Plaza']);
+test('overview totals include only events in the current academic year', function () {
+    $this->travelTo(Carbon::parse('2026-10-27 12:00:00'));
 
-    $response = $this->actingAs($this->planning)->get('/planning-office?campus=Binmaley+Campus')->assertOk();
+    dashboardEvent(['title' => 'Academic year start', 'start_datetime' => Carbon::parse('2026-08-10 09:00:00')]);
+    dashboardEvent(['title' => 'Academic year end', 'start_datetime' => Carbon::parse('2027-05-28 10:00:00')]);
+    dashboardEvent(['title' => 'Before academic year', 'start_datetime' => Carbon::parse('2026-08-09 09:00:00')]);
+    dashboardEvent(['title' => 'After academic year', 'start_datetime' => Carbon::parse('2027-05-29 09:00:00')]);
+    dashboardEvent(['title' => 'Academic year pending', 'status' => 'pending', 'start_datetime' => Carbon::parse('2027-05-27 09:00:00')]);
+    dashboardEvent(['title' => 'Outside academic year pending', 'status' => 'pending', 'start_datetime' => Carbon::parse('2027-05-29 11:00:00')]);
+
+    $response = $this->actingAs($this->planning)->get('/planning-office')->assertOk();
+
+    expect($response->viewData('academicYear')['label'])->toBe('2026-2027')
+        ->and($response->viewData('summary')['total'])->toBe(2)
+        ->and($response->viewData('summary')['upcoming'])->toBe(1)
+        ->and($response->viewData('summary')['completed'])->toBe(1)
+        ->and($response->viewData('summary')['pending'])->toBe(1)
+        ->and($response->viewData('officeSummaries')->sum('total'))->toBe(2);
+
+    $response->assertSee('Academic Year 2026-2027')
+        ->assertSee('Aug 10, 2026')
+        ->assertSee('May 28, 2027');
+});
+
+test('office filter keeps requests submitted by that office regardless of event campus', function () {
+    dashboardEvent(['title' => 'Lingayen Intrams', 'email' => 'op@psu.local']);
+    dashboardEvent(['title' => 'Binmaley Fair', 'email' => 'ovpafm@psu.local', 'campus' => 'Binmaley Campus', 'venue_name' => 'Binmaley Hall']);
+    dashboardEvent(['title' => 'University Meet', 'email' => 'ovpafm@psu.local', 'is_university_wide' => true, 'venue_name' => 'Plaza']);
+
+    $office = User::UNIVERSITY_OFFICE_ACCOUNT_LABELS['ovpafm@psu.local'];
+    $response = $this->actingAs($this->planning)->get('/planning-office?office=' . urlencode($office))->assertOk();
 
     expect($response->viewData('summary')['total'])->toBe(2)
         ->and($response->viewData('upcoming')->pluck('title')->all())->toEqualCanonicalizing(['Binmaley Fair', 'University Meet']);
 });
 
 test('invalid dashboard filters are rejected', function () {
-    $this->actingAs($this->planning)->get('/planning-office?campus=Fake+Campus')->assertSessionHasErrors('campus');
+    $this->actingAs($this->planning)->get('/planning-office?office=Fake+Office')->assertSessionHasErrors('office');
     $this->actingAs($this->planning)->get('/planning-office?from=2026-10-10&to=2026-10-01')->assertSessionHasErrors('to');
+});
+
+test('planning office sidebar lists university offices without campus groups', function () {
+    User::factory()->create([
+        'name' => 'Office of the President',
+        'email' => 'op@psu.local',
+        'role' => 'office',
+        'campus' => User::UNIVERSITY_OFFICES,
+    ]);
+    User::factory()->create([
+        'name' => 'PSU Alaminos Campus',
+        'email' => 'alaminos@psu.local',
+        'role' => 'office',
+        'campus' => 'Alaminos Campus',
+    ]);
+
+    $response = $this->actingAs($this->planning)->get('/planning-office')->assertOk();
+
+    $response->assertSee('University Offices')
+        ->assertSee('Office of the President')
+        ->assertDontSee('PSU Alaminos Campus');
 });
 
 test('conflicting submissions are listed as scheduling conflicts', function () {
