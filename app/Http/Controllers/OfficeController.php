@@ -16,7 +16,7 @@ use App\Models\Venue;
 
 class OfficeController extends Controller
 {
-    public function dashboard(Request $request)
+    public function dashboard(Request $request, bool $addEventOnly = false, bool $requestStatusOnly = false, bool $activityOnly = false)
     {
         $user = Auth::user();
         $email = $user->email;
@@ -120,6 +120,9 @@ class OfficeController extends Controller
         $recentActivity = ActivityLog::where('email', $email)->latest()->limit(8)->get();
 
         return view('office.dashboard', compact(
+            'addEventOnly',
+            'requestStatusOnly',
+            'activityOnly',
             'events',
             'officeRequests',
             'filterStatus',
@@ -144,6 +147,21 @@ class OfficeController extends Controller
         ));
     }
 
+    public function addEvent(Request $request)
+    {
+        return $this->dashboard($request, true);
+    }
+
+    public function requestStatus(Request $request)
+    {
+        return $this->dashboard($request, false, true);
+    }
+
+    public function recentActivity(Request $request)
+    {
+        return $this->dashboard($request, false, false, true);
+    }
+
     public function calendar(Request $request)
     {
         return $this->dashboard($request);
@@ -156,9 +174,13 @@ class OfficeController extends Controller
      */
     public function checkAvailability(Request $request, EventConflictChecker $conflictChecker)
     {
+        $isUniversityWide = $request->boolean('is_university_wide');
         $validated = $request->validate([
             'venue_name' => 'required|string|max:255',
-            'campus' => 'nullable|string|max:255',
+            'campus' => $isUniversityWide
+                ? ['nullable', 'string', 'max:255']
+                : ['required', 'string', \Illuminate\Validation\Rule::in(\App\Models\User::CAMPUSES)],
+            'is_university_wide' => 'nullable|boolean',
             'start_datetime' => 'required|date',
             'end_datetime' => 'required|date|after:start_datetime',
             'edit_id' => 'nullable|integer',
@@ -166,9 +188,10 @@ class OfficeController extends Controller
 
         $user = Auth::user();
         $venue = trim($validated['venue_name']);
-        $campus = $validated['campus'] ?? null;
+        $campus = $isUniversityWide ? 'All Campus' : $validated['campus'];
         $start = Carbon::parse($validated['start_datetime']);
         $end = Carbon::parse($validated['end_datetime']);
+        $this->validateOfficeHours($start, $end);
 
         // Only exclude a request this office actually owns
         $excludeId = null;
@@ -229,37 +252,63 @@ class OfficeController extends Controller
             : $start->format('M j, Y g:i A') . ' – ' . $end->format('M j, Y g:i A');
     }
 
+    private function validateOfficeHours(Carbon $start, Carbon $end): void
+    {
+        if (! EventConflictChecker::isWithinOfficeHours($start, $end)) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'start_datetime' => 'Events must start and end between 8:00 AM and 5:00 PM. Multi-day events are allowed within these hours.',
+            ]);
+        }
+    }
+
     public function requestVenue(Request $request, EventConflictChecker $conflictChecker)
     {
-        $request->validate([
+        $isUniversityWide = $request->boolean('is_university_wide');
+        $validated = $request->validate([
             'title' => 'required|string|max:255',
             'venue_name' => 'required|string|max:255',
-            'campus' => 'required|string|max:255',
+            'event_for' => 'nullable|string|max:5000',
+            'attention_to' => 'nullable|string|max:5000',
+            'campus' => $isUniversityWide
+                ? ['nullable', 'string', 'max:255']
+                : ['required', 'string', \Illuminate\Validation\Rule::in(\App\Models\User::CAMPUSES)],
             'sdg_number' => ['nullable', 'integer', 'between:1,17'],
             'is_university_wide' => ['nullable', 'boolean'],
             'start_datetime' => 'required|date',
-            'end_datetime' => 'required|date|after_or_equal:start_datetime',
+            'end_datetime' => 'required|date|after:start_datetime',
             'description' => 'nullable|string',
             'digital_documents' => ['nullable', 'array'],
             'digital_documents.*' => ['file', 'mimes:pdf,jpg,jpeg,png,doc,docx', 'max:10240'],
         ]);
+        $start = Carbon::parse($validated['start_datetime']);
+        $end = Carbon::parse($validated['end_datetime']);
+        $this->validateOfficeHours($start, $end);
 
         $user = Auth::user();
         $editId = $request->input('edit_id');
+        $campus = $isUniversityWide ? 'All Campus' : $validated['campus'];
+        $venue = trim($validated['venue_name']);
+
+        // When editing, the request must not count as conflicting with itself
+        $conflicts = $conflictChecker->find(
+            $venue,
+            $campus,
+            $validated['start_datetime'],
+            $validated['end_datetime'],
+            $editId ? (int) $editId : null
+        );
+
+        if ($conflicts->isNotEmpty()) {
+            return back()->withInput()->with(
+                'error',
+                'This venue is already booked during that time. Choose another venue or time before submitting.'
+            );
+        }
 
         $files = [];
         foreach ($request->file('digital_documents', []) as $file) {
             $files[] = $file->store('event-documents', 'public');
         }
-
-        // When editing, the request must not count as conflicting with itself
-        $conflicts = $conflictChecker->find(
-            $request->input('venue_name'),
-            $request->input('campus'),
-            $request->input('start_datetime'),
-            $request->input('end_datetime'),
-            $editId ? (int) $editId : null
-        );
 
         // ---- Editing an existing pending request ----
         if ($editId) {
@@ -275,21 +324,23 @@ class OfficeController extends Controller
 
             $existing->update([
                 'title' => $request->input('title'),
-                'venue_name' => $request->input('venue_name'),
-                'campus' => $request->input('campus'),
-                'is_university_wide' => $request->boolean('is_university_wide'),
+                'venue_name' => $venue,
+                'event_for' => $validated['event_for'] ?? null,
+                'attention_to' => $validated['attention_to'] ?? null,
+                'campus' => $campus,
+                'is_university_wide' => $isUniversityWide,
                 'sdg_number' => $request->input('sdg_number'),
                 'description' => $request->input('description', ''),
                 'start_datetime' => $request->input('start_datetime'),
                 'end_datetime' => $request->input('end_datetime'),
-                'status' => $conflicts->isEmpty() ? 'pending' : 'conflict',
+                'status' => 'pending',
                 'digital_documents' => $files ?: $existing->digital_documents,
                 'read_at' => null,
             ]);
 
             ActivityLog::record($user->email, 'edited', "Edited request \"{$existing->title}\"");
 
-            return redirect(route('office.dashboard') . '#request-status')
+            return redirect(route('office.request-status'))
                 ->with('success', 'Your request has been updated.');
         }
 
@@ -298,22 +349,23 @@ class OfficeController extends Controller
             'name' => $user->name,
             'email' => $user->email,
             'title' => $request->input('title'),
-            'venue_name' => $request->input('venue_name'),
-            'campus' => $request->input('campus'),
-            'is_university_wide' => $request->boolean('is_university_wide'),
+            'venue_name' => $venue,
+            'event_for' => $validated['event_for'] ?? null,
+            'attention_to' => $validated['attention_to'] ?? null,
+            'campus' => $campus,
+            'is_university_wide' => $isUniversityWide,
             'sdg_number' => $request->input('sdg_number'),
             'description' => $request->input('description', ''),
             'start_datetime' => $request->input('start_datetime'),
             'end_datetime' => $request->input('end_datetime'),
-            'status' => $conflicts->isEmpty() ? 'pending' : 'conflict',
+            'status' => 'pending',
             'digital_documents' => $files,
         ]);
 
         ActivityLog::record($user->email, 'submitted', "Submitted \"{$new->title}\" for {$new->venue_name}");
 
-        return back()->with('success', $conflicts->isEmpty()
-            ? 'Event request submitted. It is now awaiting Planning Office review.'
-            : 'Request submitted with a scheduling conflict. The Planning Office has been notified to resolve it.');
+        return redirect(route('office.request-status'))
+            ->with('success', 'Event request submitted. It is now awaiting Planning Office review.');
     }
 
     /**
@@ -323,9 +375,11 @@ class OfficeController extends Controller
     {
         $original = EventRequest::where('id', $id)->where('email', Auth::user()->email)->firstOrFail();
 
-        return redirect(route('office.dashboard') . '#request-form')->withInput([
+        return redirect(route('office.add-event'))->withInput([
             'title' => $original->title,
             'venue_name' => $original->venue_name,
+            'event_for' => $original->event_for,
+            'attention_to' => $original->attention_to,
             'campus' => $original->campus,
             'is_university_wide' => $original->is_university_wide ? '1' : '0',
             'sdg_number' => $original->sdg_number,
@@ -343,14 +397,16 @@ class OfficeController extends Controller
         $original = EventRequest::where('id', $id)->where('email', Auth::user()->email)->firstOrFail();
 
         if (! in_array($original->status, EventRequest::EDITABLE_STATUSES, true)) {
-            return redirect(route('office.dashboard') . '#request-status')
+            return redirect(route('office.request-status'))
                 ->with('error', 'Only pending requests can be edited.');
         }
 
-        return redirect(route('office.dashboard') . '#request-form')->withInput([
+        return redirect(route('office.add-event'))->withInput([
             'edit_id' => $original->id,
             'title' => $original->title,
             'venue_name' => $original->venue_name,
+            'event_for' => $original->event_for,
+            'attention_to' => $original->attention_to,
             'campus' => $original->campus,
             'is_university_wide' => $original->is_university_wide ? '1' : '0',
             'sdg_number' => $original->sdg_number,
@@ -372,8 +428,23 @@ class OfficeController extends Controller
         $existing->update(['status' => 'cancelled']);
         ActivityLog::record($user->email, 'cancelled', "Cancelled request \"{$existing->title}\"");
 
-        return redirect(route('office.dashboard') . '#request-status')
+        return redirect(route('office.request-status'))
             ->with('success', 'Request cancelled.');
+    }
+
+    public function deleteCancelledRequest($id)
+    {
+        $user = Auth::user();
+        $existing = EventRequest::where('id', $id)
+            ->where('email', $user->email)
+            ->where('status', 'cancelled')
+            ->firstOrFail();
+
+        ActivityLog::record($user->email, 'deleted', "Deleted cancelled request \"{$existing->title}\"");
+        $existing->delete();
+
+        return redirect(route('office.request-status'))
+            ->with('success', 'Cancelled request deleted.');
     }
 
     public function toggleFavoriteVenue(Request $request)

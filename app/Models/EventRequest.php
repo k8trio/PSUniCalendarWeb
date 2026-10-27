@@ -15,6 +15,8 @@ class EventRequest extends Model
         'email',
         'title',
         'venue_name',
+        'event_for',
+        'attention_to',
         'campus',
         'is_university_wide',
         'sdg_number',

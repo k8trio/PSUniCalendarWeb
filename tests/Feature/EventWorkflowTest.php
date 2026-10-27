@@ -6,15 +6,92 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
 
-test('office request conflicts are flagged and planning office can reschedule and approve', function () {
+test('office add event page presents the event form as a standalone page', function () {
+    $office = User::factory()->create(['role' => 'office']);
+
+    $this->actingAs($office)->get('/office/add-event')
+        ->assertOk()
+        ->assertSee('od-add-event-page')
+        ->assertSee('id="venue-request-form"', false)
+        ->assertSee('Back to Dashboard');
+});
+
+test('office request status page presents request status as a standalone page', function () {
+    $office = User::factory()->create(['role' => 'office']);
+
+    $this->actingAs($office)->get('/office/request-status')
+        ->assertOk()
+        ->assertSee('od-request-status-page')
+        ->assertSee('id="request-status"', false)
+        ->assertDontSee('id="activity-log"', false)
+        ->assertSee('data-nav-section="request-status"', false)
+        ->assertSee('data-nav-section="activity-log"', false)
+        ->assertSee('Back to Dashboard');
+});
+
+test('office recent activity page displays only the activity log', function () {
+    $office = User::factory()->create(['role' => 'office']);
+
+    $this->actingAs($office)->get('/office/recent-activity')
+        ->assertOk()
+        ->assertSee('od-activity-page')
+        ->assertSee('id="activity-log"', false)
+        ->assertDontSee('id="request-status"', false)
+        ->assertSee('Recent Activity')
+        ->assertSee('Back to Dashboard');
+});
+
+test('office can delete only its own cancelled requests', function () {
+    $office = User::factory()->create(['role' => 'office']);
+    $otherOffice = User::factory()->create(['role' => 'office']);
+
+    $cancelledRequest = EventRequest::create([
+        'name' => $office->name,
+        'email' => $office->email,
+        'title' => 'Cancelled request',
+        'venue_name' => 'Room 101',
+        'campus' => 'Lingayen Campus',
+        'start_datetime' => now()->addDay()->setTime(9, 0),
+        'end_datetime' => now()->addDay()->setTime(10, 0),
+        'status' => 'cancelled',
+    ]);
+    $pendingRequest = EventRequest::create([
+        'name' => $office->name,
+        'email' => $office->email,
+        'title' => 'Pending request',
+        'venue_name' => 'Room 102',
+        'campus' => 'Lingayen Campus',
+        'start_datetime' => now()->addDays(2)->setTime(9, 0),
+        'end_datetime' => now()->addDays(2)->setTime(10, 0),
+        'status' => 'pending',
+    ]);
+    $otherRequest = EventRequest::create([
+        'name' => $otherOffice->name,
+        'email' => $otherOffice->email,
+        'title' => 'Another office cancelled request',
+        'venue_name' => 'Room 103',
+        'campus' => 'Lingayen Campus',
+        'start_datetime' => now()->addDays(3)->setTime(9, 0),
+        'end_datetime' => now()->addDays(3)->setTime(10, 0),
+        'status' => 'cancelled',
+    ]);
+
+    $this->actingAs($office)->delete("/office/requests/{$cancelledRequest->id}")
+        ->assertRedirect(route('office.request-status'))
+        ->assertSessionHas('success', 'Cancelled request deleted.');
+    $this->assertDatabaseMissing('event_requests', ['id' => $cancelledRequest->id]);
+
+    $this->delete("/office/requests/{$pendingRequest->id}")->assertNotFound();
+    $this->delete("/office/requests/{$otherRequest->id}")->assertNotFound();
+    $this->assertDatabaseHas('event_requests', ['id' => $pendingRequest->id]);
+    $this->assertDatabaseHas('event_requests', ['id' => $otherRequest->id]);
+});
+
+test('office request rejects an overlapping venue and time', function () {
     $division = User::factory()->create([
         'email' => 'lingayen@psu.local',
         'role' => 'office',
         'campus' => 'Lingayen Campus',
-    ]);
-    $planningOffice = User::factory()->create([
-        'email' => 'planning@psu.local',
-        'role' => 'planning_office',
     ]);
     $start = now()->addDay()->setTime(10, 0);
 
@@ -32,38 +109,110 @@ test('office request conflicts are flagged and planning office can reschedule an
     $this->actingAs($division)->post('/office/request-venue', [
         'title' => 'Division seminar',
         'venue_name' => 'Main Auditorium',
+        'event_for' => 'Office of the University President; All Vice Presidents; Executive Director, School of Advanced Studies; Executive Director, Open University System; All Campus Executive Directors',
+        'attention_to' => 'Office of Student Affairs',
         'campus' => 'Lingayen Campus',
         'sdg_number' => 4,
         'start_datetime' => $start->format('Y-m-d\\TH:i'),
         'end_datetime' => $start->copy()->addHour()->format('Y-m-d\\TH:i'),
         'description' => 'An education event',
-    ])->assertRedirect();
+    ])->assertRedirect()
+        ->assertSessionHas('error', 'This venue is already booked during that time. Choose another venue or time before submitting.');
 
-    $request = EventRequest::where('title', 'Division seminar')->firstOrFail();
-    expect($request->status)->toBe('conflict')
-        ->and($request->sdg_number)->toBe(4);
+    $this->assertDatabaseMissing('event_requests', ['title' => 'Division seminar']);
+    $this->assertDatabaseHas('event_requests', ['title' => 'Existing approved event']);
+});
 
-    $this->actingAs($planningOffice)->get('/planning-office/pending-approvals')
-        ->assertOk()
-        ->assertSee('Conflict detected')
-        ->assertSee('Existing approved event')
-        ->assertSee('SDG 4: Quality Education');
+test('office request detects venue conflicts despite case or surrounding spaces', function () {
+    $office = User::factory()->create(['role' => 'office', 'campus' => 'Lingayen Campus']);
+    $start = now()->addDay()->setTime(10, 0);
 
-    $newStart = $start->copy()->addHours(2);
-    $this->actingAs($planningOffice)->post('/planning-office/approve/' . $request->id, [
+    EventRequest::create([
+        'name' => 'Existing event owner',
+        'email' => 'owner@psu.local',
+        'title' => 'Existing booking',
         'venue_name' => 'Main Auditorium',
         'campus' => 'Lingayen Campus',
-        'sdg_number' => 4,
-        'start_datetime' => $newStart->format('Y-m-d\\TH:i'),
-        'end_datetime' => $newStart->copy()->addHour()->format('Y-m-d\\TH:i'),
-        'planning_note' => 'Moved to avoid the auditorium overlap.',
+        'start_datetime' => $start,
+        'end_datetime' => $start->copy()->addHour(),
+        'status' => 'approved',
+    ]);
+
+    $this->actingAs($office)->post('/office/request-venue', [
+        'title' => 'Overlapping booking',
+        'venue_name' => '  main auditorium  ',
+        'campus' => 'Lingayen Campus',
+        'start_datetime' => $start->copy()->addMinutes(30)->format('Y-m-d\\TH:i'),
+        'end_datetime' => $start->copy()->addHours(2)->format('Y-m-d\\TH:i'),
+    ])->assertRedirect()->assertSessionHas('error');
+
+    $this->assertDatabaseMissing('event_requests', ['title' => 'Overlapping booking']);
+});
+
+test('conflict suggestions move to the next date and stay within office hours', function () {
+    $office = User::factory()->create(['role' => 'office', 'campus' => 'Lingayen Campus']);
+    $start = now()->addDays(2)->setTime(9, 0);
+
+    EventRequest::create([
+        'name' => 'Existing event owner',
+        'email' => 'owner@psu.local',
+        'title' => 'Full-day booking',
+        'venue_name' => 'Main Auditorium',
+        'campus' => 'Lingayen Campus',
+        'start_datetime' => $start,
+        'end_datetime' => $start->copy()->setTime(17, 0),
+        'status' => 'approved',
+    ]);
+
+    $query = http_build_query([
+        'venue_name' => 'Main Auditorium',
+        'campus' => 'Lingayen Campus',
+        'start_datetime' => $start->format('Y-m-d\\TH:i'),
+        'end_datetime' => $start->copy()->setTime(17, 0)->format('Y-m-d\\TH:i'),
+    ]);
+    $response = $this->actingAs($office)->get('/office/check-availability?' . $query)->assertOk();
+
+    expect($response->json('state'))->toBe('conflict')
+        ->and($response->json('suggestion.start'))->toBe($start->copy()->addDay()->setTime(8, 0)->format('Y-m-d\\TH:i'))
+        ->and($response->json('suggestion.end'))->toBe($start->copy()->addDay()->setTime(16, 0)->format('Y-m-d\\TH:i'));
+});
+
+test('office requests cannot start or end outside office hours', function () {
+    $office = User::factory()->create(['role' => 'office', 'campus' => 'Lingayen Campus']);
+    $start = now()->addDay()->setTime(7, 0);
+
+    $this->actingAs($office)->post('/office/request-venue', [
+        'title' => 'Early meeting',
+        'venue_name' => 'Main Auditorium',
+        'campus' => 'Lingayen Campus',
+        'start_datetime' => $start->format('Y-m-d\\TH:i'),
+        'end_datetime' => $start->copy()->setTime(9, 0)->format('Y-m-d\\TH:i'),
+    ])->assertRedirect()
+        ->assertSessionHasErrors('start_datetime');
+
+    $this->assertDatabaseMissing('event_requests', ['title' => 'Early meeting']);
+});
+
+test('university-wide office requests use all campuses without requiring a campus selection', function () {
+    $office = User::factory()->create([
+        'email' => 'registrar@psu.local',
+        'role' => 'office',
+    ]);
+
+    $start = now()->addDay()->setTime(10, 0);
+
+    $this->actingAs($office)->post('/office/request-venue', [
+        'title' => 'University seminar',
+        'venue_name' => 'University Auditorium',
+        'is_university_wide' => '1',
+        'start_datetime' => $start->format('Y-m-d\\TH:i'),
+        'end_datetime' => $start->copy()->addHour()->format('Y-m-d\\TH:i'),
     ])->assertRedirect();
 
     $this->assertDatabaseHas('event_requests', [
-        'id' => $request->id,
-        'status' => 'approved',
-        'sdg_number' => 4,
-        'planning_note' => 'Moved to avoid the auditorium overlap.',
+        'title' => 'University seminar',
+        'campus' => 'All Campus',
+        'is_university_wide' => true,
     ]);
 });
 

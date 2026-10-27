@@ -19,6 +19,10 @@ Route::post('/office/logout', [OfficeAuthController::class, 'logout'])->name('of
 
 Route::middleware(['auth', 'role:office'])->prefix('office')->group(function () {
     Route::get('/', [OfficeController::class, 'dashboard'])->name('office.dashboard');
+    Route::get('/add-event', [OfficeController::class, 'addEvent'])->name('office.add-event');
+    Route::get('/request-status', [OfficeController::class, 'requestStatus'])->name('office.request-status');
+    Route::get('/recent-activity', [OfficeController::class, 'recentActivity'])->name('office.recent-activity');
+    Route::get('/recent-activity', [OfficeController::class, 'recentActivity'])->name('office.recent-activity');
     Route::get('/calendar', [OfficeController::class, 'calendar'])->name('office.calendar');
     Route::post('/request-venue', [OfficeController::class, 'requestVenue'])->name('office.request');
     Route::get('/check-availability', [OfficeController::class, 'checkAvailability'])->name('office.availability');
@@ -27,6 +31,8 @@ Route::middleware(['auth', 'role:office'])->prefix('office')->group(function () 
     Route::get('/requests/{id}/duplicate', [OfficeController::class, 'duplicateRequest'])->name('office.requests.duplicate');
     Route::get('/requests/{id}/edit', [OfficeController::class, 'editRequestForm'])->name('office.requests.edit');
     Route::post('/requests/{id}/cancel', [OfficeController::class, 'cancelRequest'])->name('office.requests.cancel');
+    Route::delete('/requests/{id}', [OfficeController::class, 'deleteCancelledRequest'])->name('office.requests.delete');
+    Route::delete('/requests/{id}', [OfficeController::class, 'deleteCancelledRequest'])->name('office.requests.delete');
     Route::post('/favorite-venues', [OfficeController::class, 'toggleFavoriteVenue'])->name('office.favorite-venues.toggle');
 
     // Notifications

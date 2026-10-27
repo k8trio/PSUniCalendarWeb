@@ -31,11 +31,11 @@
     <link href="{{ asset('css/office-dashboard.css') }}" rel="stylesheet">
     <link href="{{ asset('css/ui-feedback.css') }}" rel="stylesheet">
 </head>
-<body class="od-body">
+<body class="od-body {{ ($addEventOnly ?? false) ? 'od-add-event-page' : '' }} {{ ($requestStatusOnly ?? false) ? 'od-request-status-page' : '' }} {{ ($activityOnly ?? false) ? 'od-activity-page' : '' }}">
     <!-- ================= Sidebar ================= -->
     <aside id="sidebar" class="od-sidebar" aria-label="Main navigation">
         <div class="od-sidebar__inner">
-            <a href="#calendar" class="od-brand">
+            <a href="{{ route('office.dashboard') }}#calendar" class="od-brand">
                 <span class="od-brand__seal">
                     <img src="{{ asset('images/psu-logo.png') }}" alt="Pangasinan State University seal"
                          onerror="this.outerHTML='<span class=&quot;od-seal-fallback&quot;>PSU</span>'" />
@@ -48,17 +48,21 @@
 
             <p class="od-nav-label">Menu</p>
             <nav class="od-nav">
-                <a href="#calendar" data-nav-section="calendar" class="od-nav-link">
+                <a href="{{ route('office.dashboard') }}#calendar" data-nav-section="calendar" class="od-nav-link">
                     <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" /></svg>
                     <span class="od-nav-text">Calendar</span>
                 </a>
-                <a href="#request-form" data-nav-section="request-form" class="od-nav-link">
+                <a href="{{ route('office.add-event') }}" data-nav-section="request-form" class="od-nav-link">
                     <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v6m3-3H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                     <span class="od-nav-text">Add Event</span>
                 </a>
-                <a href="#request-status" data-nav-section="request-status" class="od-nav-link">
+                <a href="{{ route('office.request-status') }}" data-nav-section="request-status" class="od-nav-link">
                     <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM3.75 12h.007v.008H3.75V12zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm-.375 5.25h.007v.008H3.75v-.008zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" /></svg>
                     <span class="od-nav-text">Request Status</span>
+                </a>
+                <a href="{{ route('office.recent-activity') }}" data-nav-section="activity-log" class="od-nav-link">
+                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6l4 2m5-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    <span class="od-nav-text">Recent Activity</span>
                 </a>
             </nav>
 
@@ -102,13 +106,21 @@
                         <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" /></svg>
                     </button>
                     <div>
-                        <h1 class="od-topbar__title">Office Dashboard</h1>
+                        <h1 class="od-topbar__title">{{ ($addEventOnly ?? false) ? (old('edit_id') ? 'Edit Event Request' : 'Add Event') : (($requestStatusOnly ?? false) ? 'Request Status' : (($activityOnly ?? false) ? 'Recent Activity' : 'Office Dashboard')) }}</h1>
                         <p class="od-topbar__sub">{{ now()->format('l, F j, Y') }}</p>
                     </div>
                 </div>
 
                 <div class="od-topbar__actions">
-                    <a href="#request-form" class="od-btn od-btn--primary no-print">Add Event</a>
+                    @if($addEventOnly ?? false)
+                        <a href="{{ route('office.dashboard') }}" class="od-btn od-btn--ghost no-print">Back to Dashboard</a>
+                    @elseif($requestStatusOnly ?? false)
+                        <a href="{{ route('office.dashboard') }}" class="od-btn od-btn--ghost no-print">Back to Dashboard</a>
+                    @elseif($activityOnly ?? false)
+                        <a href="{{ route('office.dashboard') }}" class="od-btn od-btn--ghost no-print">Back to Dashboard</a>
+                    @else
+                        <a href="{{ route('office.add-event') }}" class="od-btn od-btn--primary no-print">Add Event</a>
+                    @endif
                     <!-- Notification bell -->
                     <div class="od-notif">
                         <button type="button" id="notif-bell-btn" class="od-icon-btn" aria-label="Notifications">
@@ -233,7 +245,7 @@
             <section id="request-form" class="od-card">
                 <div class="od-card__head">
                     <div>
-                        <h2 class="od-card__title">{{ old('edit_id') ? 'Edit request' : 'Add a Event' }}</h2>
+                        <h2 class="od-card__title">{{ old('edit_id') ? 'Edit request' : 'Add Event' }}</h2>
                         <p class="od-card__sub">The Planning Office reviews every request and checks for schedule conflicts.</p>
                     </div>
                 </div>
@@ -241,7 +253,7 @@
                 @if(old('edit_id'))
                     <div class="od-alert od-alert--info" style="justify-content:space-between">
                         <span>Editing request #{{ old('edit_id') }}.</span>
-                        <a href="{{ route('office.dashboard') }}#request-form" class="od-link">Cancel edit</a>
+                        <a href="{{ route('office.dashboard') }}" class="od-link">Cancel edit</a>
                     </div>
                 @endif
 
@@ -262,7 +274,7 @@
 
                     <div class="od-form-grid">
                         <label class="od-field">
-                            <span class="od-label">Event Title</span>
+                            <span class="od-label">Subject (Event Title)</span>
                             <input type="text" name="title" value="{{ old('title') }}" required class="od-input" />
                         </label>
                         <label class="od-field">
@@ -281,24 +293,15 @@
 
                     <div class="od-form-grid">
                         <label class="od-field">
-                            <span class="od-label">Campus</span>
-                            <select name="campus" id="campus_select" required class="od-input">
-                                <option value="">Select campus</option>
-                                @foreach(\App\Models\User::CAMPUSES as $campus)
-                                    <option value="{{ $campus }}" {{ old('campus') === $campus ? 'selected' : '' }}>{{ $campus }}</option>
-                                @endforeach
-                            </select>
+                            <span class="od-label">For (Offices/Officials)</span>
+                            <textarea name="event_for" rows="3" maxlength="5000" class="od-input" placeholder="Separate offices or officials with semicolons">{{ old('event_for') }}</textarea>
                         </label>
                         <label class="od-field">
-                            <span class="od-label">SDG alignment (optional)</span>
-                            <select name="sdg_number" class="od-input">
-                                <option value="">Not aligned to an SDG</option>
-                                @foreach(['No Poverty', 'Zero Hunger', 'Good Health and Well-being', 'Quality Education', 'Gender Equality', 'Clean Water and Sanitation', 'Affordable and Clean Energy', 'Decent Work and Economic Growth', 'Industry, Innovation and Infrastructure', 'Reduced Inequalities', 'Sustainable Cities and Communities', 'Responsible Consumption and Production', 'Climate Action', 'Life Below Water', 'Life on Land', 'Peace, Justice and Strong Institutions', 'Partnerships for the Goals'] as $index => $sdg)
-                                    <option value="{{ $index + 1 }}" {{ (string) old('sdg_number') === (string) ($index + 1) ? 'selected' : '' }}>SDG {{ $index + 1 }}: {{ $sdg }}</option>
-                                @endforeach
-                            </select>
+                            <span class="od-label">Attention (Persons/Units)</span>
+                            <textarea name="attention_to" rows="3" maxlength="5000" class="od-input" placeholder="Separate persons or units with semicolons">{{ old('attention_to') }}</textarea>
                         </label>
                     </div>
+                    <p class="od-hint">Separate entries with semicolons. Both fields stay editable so you can use Backspace to organize or remove entries.</p>
 
                     {{-- Who can see the event: venue campus only, or every campus --}}
                     <fieldset class="od-audience">
@@ -322,18 +325,31 @@
                     </fieldset>
 
                     <div class="od-form-grid">
+                        <label class="od-field" id="campus-field">
+                            <span class="od-label">Campus</span>
+                            <select name="campus" id="campus_select" required class="od-input">
+                                <option value="">Select campus</option>
+                                @foreach(\App\Models\User::CAMPUSES as $campus)
+                                    <option value="{{ $campus }}" {{ old('campus') === $campus ? 'selected' : '' }}>{{ $campus }}</option>
+                                @endforeach
+                            </select>
+                        </label>
+                        <input type="hidden" name="campus" id="campus_university_wide" value="All Campus" disabled />
+                    </div>
+
+                    <div class="od-form-grid">
                         <label class="od-field">
-                            <span class="od-label">Start Date</span>
+                            <span class="od-label">Start Date &amp; Time</span>
                             <input type="datetime-local" id="start_datetime_input" name="start_datetime" value="{{ old('start_datetime') }}" required class="od-input" />
                         </label>
                         <label class="od-field">
-                            <span class="od-label">End Date</span>
+                            <span class="od-label">End Date &amp; Time</span>
                             <input type="datetime-local" id="end_datetime_input" name="end_datetime" value="{{ old('end_datetime') }}" required class="od-input" />
                         </label>
                     </div>
 
                     <!-- Live conflict & availability check (updates as the form is filled) -->
-                    <div id="availability-panel" class="od-avail" data-state="idle" aria-live="polite">
+                    <div id="availability-panel" class="od-avail hidden" data-state="idle" aria-live="polite">
                         <div class="od-avail__head">
                             <span class="od-avail__icon" aria-hidden="true"></span>
                             <div>
@@ -357,19 +373,20 @@
 
                     <div class="od-submit-row">
                         <button type="submit" id="venue-request-submit" class="od-btn od-btn--primary">{{ old('edit_id') ? 'Update Request' : 'Add Event' }}</button>
-                        <p id="submit-conflict-note" class="od-submit-note hidden">This time conflicts with another booking. You can still submit — it will be flagged for the Planning Office to resolve.</p>
+                        <p id="submit-conflict-note" class="od-submit-note hidden">This venue and time are already booked. Choose another venue or time to continue.</p>
                     </div>
                 </form>
             </section>
 
             <!-- ===== Tab: Request Status ===== -->
+            @if(!($activityOnly ?? false))
             <section id="request-status" class="od-card">
                 <div class="od-card__head">
                     <h2 class="od-card__title">Request Status</h2>
                     <button type="button" onclick="window.print()" class="od-btn od-btn--ghost od-btn--sm no-print">Print / Save as PDF</button>
                 </div>
 
-                <form id="request-filter-form" method="GET" action="{{ route('office.dashboard') }}#request-status" class="no-print">
+                <form id="request-filter-form" method="GET" action="{{ ($requestStatusOnly ?? false) ? route('office.request-status') : route('office.dashboard') . '#request-status' }}" class="no-print">
                     <div class="od-filters">
                         <input type="search" name="q" value="{{ $filterQuery ?? '' }}" placeholder="Search title or venue..." autocomplete="off" class="od-input od-input--sm" aria-label="Search title or venue" />
                         <select name="status" class="od-input od-input--sm" aria-label="Status">
@@ -419,6 +436,14 @@
                                                     <button type="submit" class="od-link od-link--danger">Cancel</button>
                                                 </form>
                                             @endif
+                                            @if($r->status === 'cancelled')
+                                                <span class="od-table__sep">·</span>
+                                                <form method="POST" action="{{ route('office.requests.delete', $r->id) }}" onsubmit="return confirm('Permanently delete this cancelled request? This cannot be undone.');">
+                                                    @csrf
+                                                    @method('DELETE')
+                                                    <button type="submit" class="od-link od-link--danger">Delete</button>
+                                                </form>
+                                            @endif
                                         </div>
                                     </td>
                                 </tr>
@@ -429,67 +454,29 @@
                         </tbody>
                     </table>
                 </div>
+
             </section>
+            @endif
 
-            <!-- ===== Always visible: timeline + activity ===== -->
-            <div class="od-two-col">
-                <section class="od-card">
-                    <div class="od-card__head">
-                        <h2 class="od-card__title">Your request status</h2>
-                    </div>
-                    @if(($officeRequests ?? collect())->isEmpty())
-                        <p class="od-empty">No requests submitted from this account.</p>
-                    @else
-                        <ul class="od-timeline">
-                            @foreach($officeRequests as $request)
-                                <li class="od-timeline__item" data-status="{{ $request->status }}">
-                                    <div>
-                                        <p class="od-timeline__title">{{ $request->title }}</p>
-                                        <p class="od-timeline__meta">
-                                            {{ $request->venue_name }} · {{ $request->start_datetime->format('M j, Y g:i A') }}
-                                            @if($request->end_datetime)
-                                                – {{ $request->end_datetime->isSameDay($request->start_datetime) ? $request->end_datetime->format('g:i A') : $request->end_datetime->format('M j, Y g:i A') }}
-                                            @endif
-                                        </p>
-                                        @if($request->planning_note)
-                                            <p class="od-timeline__note">Planning Office: {{ $request->planning_note }}</p>
-                                        @endif
-                                    </div>
-                                    <div class="od-timeline__side">
-                                        <span class="od-badge od-badge--{{ $request->status }}">{{ $statusLabel($request->status) }}</span>
-                                        <a href="{{ route('office.requests.duplicate', $request->id) }}" title="Duplicate" aria-label="Duplicate" class="od-action">⧉</a>
-                                        @if(in_array($request->status, \App\Models\EventRequest::EDITABLE_STATUSES))
-                                            <a href="{{ route('office.requests.edit', $request->id) }}" title="Edit" aria-label="Edit" class="od-action">✎</a>
-                                            <form method="POST" action="{{ route('office.requests.cancel', $request->id) }}" onsubmit="return confirm('Cancel this request?');">
-                                                @csrf
-                                                <button type="submit" title="Cancel" aria-label="Cancel" class="od-action od-action--danger">✕</button>
-                                            </form>
-                                        @endif
-                                    </div>
-                                </li>
-                            @endforeach
-                        </ul>
-                    @endif
-                </section>
-
-                <section id="activity-log" class="od-card no-print">
-                    <div class="od-card__head">
-                        <h2 class="od-card__title">Recent activity</h2>
-                    </div>
-                    @if(($recentActivity ?? collect())->isEmpty())
-                        <p class="od-empty">No activity yet.</p>
-                    @else
-                        <ul class="od-activity">
-                            @foreach($recentActivity as $log)
-                                <li>
-                                    <span>{{ $log->description }}</span>
-                                    <time datetime="{{ $log->created_at->toIso8601String() }}">{{ $log->created_at->diffForHumans() }}</time>
-                                </li>
-                            @endforeach
-                        </ul>
-                    @endif
-                </section>
-            </div>
+            @if(!($requestStatusOnly ?? false))
+            <section id="activity-log" class="od-card od-request-activity no-print">
+                <div class="od-card__head">
+                    <h2 class="od-card__title">Recent Activity</h2>
+                </div>
+                @if(($recentActivity ?? collect())->isEmpty())
+                    <p class="od-empty">No activity yet.</p>
+                @else
+                    <ul class="od-activity">
+                        @foreach($recentActivity as $log)
+                            <li>
+                                <span>{{ $log->description }}</span>
+                                <time datetime="{{ $log->created_at->toIso8601String() }}">{{ $log->created_at->format('M j, Y g:i A') }}</time>
+                            </li>
+                        @endforeach
+                    </ul>
+                @endif
+            </section>
+            @endif
         </div>
     </main>
 
@@ -657,6 +644,7 @@
             var calendarPanel = document.getElementById('calendar-panel');
             var requestForm = document.getElementById('request-form');
             var requestStatus = document.getElementById('request-status');
+            var activityLog = document.getElementById('activity-log');
             var navLinks = document.querySelectorAll('[data-nav-section]');
             var calendar;
 
@@ -689,9 +677,19 @@
                     requestStatus.classList.toggle('hidden', section !== 'request-status');
                 }
 
+                if (activityLog) {
+                    activityLog.classList.toggle('hidden', section !== 'activity-log');
+                }
+
                 if (calendar && section === 'calendar') {
                     requestAnimationFrame(function() {
                         calendar.updateSize();
+                    });
+                }
+
+                if (section === 'activity-log') {
+                    requestAnimationFrame(function () {
+                        if (activityLog) activityLog.scrollIntoView({ block: 'start' });
                     });
                 }
             }
@@ -707,6 +705,22 @@
 
                 if (window.location.hash === '#request-status') {
                     return 'request-status';
+                }
+
+                if (window.location.hash === '#activity-log') {
+                    return 'activity-log';
+                }
+
+                if (@json($addEventOnly ?? false)) {
+                    return 'request-form';
+                }
+
+                if (@json($requestStatusOnly ?? false)) {
+                    return 'request-status';
+                }
+
+                if (@json($activityOnly ?? false)) {
+                    return 'activity-log';
                 }
 
                 // A filtered Request Status search always lands back on that tab
@@ -794,11 +808,14 @@
             });
 
             // Shared calendar: titles on the calendar, multi-day spans, click for details
-            calendar = UniEventCalendar.init({
-                calendarEl: document.getElementById('admin-calendar'),
-                events: {!! isset($events) ? $events->toJson() : '[]' !!},
-                campusFilterEl: document.getElementById('campus-filter')
-            });
+            var calendarElement = document.getElementById('admin-calendar');
+            if (calendarElement) {
+                calendar = UniEventCalendar.init({
+                    calendarEl: calendarElement,
+                    events: {!! isset($events) ? $events->toJson() : '[]' !!},
+                    campusFilterEl: document.getElementById('campus-filter')
+                });
+            }
 
             // ---- Notification bell dropdown ----
             var bellBtn = document.getElementById('notif-bell-btn');
@@ -911,8 +928,12 @@
                 var availUrl = venueForm.dataset.availabilityUrl;
                 var venueInput = document.getElementById('venue_name_input');
                 var campusSelect = document.getElementById('campus_select');
+                var campusField = document.getElementById('campus-field');
+                var universityWideCampus = document.getElementById('campus_university_wide');
+                var audienceInputs = venueForm.querySelectorAll('input[name="is_university_wide"]');
                 var startInput = document.getElementById('start_datetime_input');
                 var endInput = document.getElementById('end_datetime_input');
+                var submitButton = document.getElementById('venue-request-submit');
                 var editIdInput = venueForm.querySelector('input[name="edit_id"]');
                 var availTitle = document.getElementById('availability-title');
                 var availMessage = document.getElementById('availability-message');
@@ -924,12 +945,34 @@
 
                 var setAvail = function (state, title, message, detailsHtml) {
                     availPanel.dataset.state = state;
+                    availPanel.classList.toggle('hidden', !['conflict', 'error', 'invalid'].includes(state));
                     availTitle.textContent = title;
                     availMessage.textContent = message;
                     availDetails.innerHTML = detailsHtml || '';
                     availDetails.classList.toggle('hidden', !detailsHtml);
                     submitNote.classList.toggle('hidden', state !== 'conflict');
+                    submitButton.disabled = ['conflict', 'checking', 'invalid'].includes(state);
                 };
+
+                var isUniversityWide = function () {
+                    return venueForm.querySelector('input[name="is_university_wide"]:checked').value === '1';
+                };
+
+                var syncCampusScope = function () {
+                    var universityWide = isUniversityWide();
+                    campusField.classList.toggle('hidden', universityWide);
+                    campusSelect.disabled = universityWide;
+                    campusSelect.required = !universityWide;
+                    universityWideCampus.disabled = !universityWide;
+                };
+
+                audienceInputs.forEach(function (input) {
+                    input.addEventListener('change', function () {
+                        syncCampusScope();
+                        scheduleAvailabilityCheck();
+                    });
+                });
+                syncCampusScope();
 
                 var renderBooking = function (event) {
                     return '<li class="od-avail__item">' +
@@ -943,8 +986,9 @@
                     var venue = venueInput.value.trim();
                     var start = startInput.value;
                     var end = endInput.value;
+                    var universityWide = isUniversityWide();
 
-                    if (!venue || !start || !end) {
+                    if (!venue || !start || !end || (!universityWide && !campusSelect.value)) {
                         lastQuery = null;
                         setAvail('idle', 'Live conflict check', 'Enter a venue, campus, and start and end time — availability is checked automatically as you type.');
                         return;
@@ -954,10 +998,18 @@
                         setAvail('invalid', 'Check the time', 'The end date and time must be after the start.');
                         return;
                     }
+                    var startTime = start.slice(11);
+                    var endTime = end.slice(11);
+                    if (startTime < '08:00' || startTime >= '17:00' || endTime < '08:00' || endTime > '17:00') {
+                        lastQuery = null;
+                        setAvail('invalid', 'Outside office hours', 'Events must start and end between 8:00 AM and 5:00 PM. Multi-day events are allowed within these hours.');
+                        return;
+                    }
 
                     var params = new URLSearchParams({
                         venue_name: venue,
-                        campus: campusSelect.value,
+                        campus: universityWide ? 'All Campus' : campusSelect.value,
+                        is_university_wide: universityWide ? '1' : '0',
                         start_datetime: start,
                         end_datetime: end
                     });
@@ -1019,14 +1071,27 @@
                         .catch(function (err) {
                             if (err.name === 'AbortError') return;
                             lastQuery = null;
-                            setAvail('error', 'Could not check availability', 'The check will run again when the Planning Office reviews your request. You can still submit.');
+                            setAvail('error', 'Could not check availability', 'Availability could not be verified. Your submission will still be checked on the server for scheduling conflicts.');
                         });
                 };
 
                 var scheduleAvailabilityCheck = function () {
                     clearTimeout(availTimer);
+                    if (availController) {
+                        availController.abort();
+                        availController = null;
+                    }
+                    lastQuery = null;
+                    setAvail('idle', 'Live conflict check', 'Enter a venue, campus, and start and end time — availability is checked automatically as you type.');
                     availTimer = setTimeout(runAvailabilityCheck, 400);
                 };
+
+                venueForm.addEventListener('submit', function (event) {
+                    if (availPanel.dataset.state === 'conflict' || availPanel.dataset.state === 'checking') {
+                        event.preventDefault();
+                        availPanel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                });
 
                 [venueInput, campusSelect, startInput, endInput].forEach(function (field) {
                     field.addEventListener('input', scheduleAvailabilityCheck);

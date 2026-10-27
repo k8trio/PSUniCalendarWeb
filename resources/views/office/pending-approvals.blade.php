@@ -34,6 +34,12 @@
                     <div class="po-review__info">
                         <p><strong>Requested schedule:</strong><br>{{ $request->start_datetime->format('D, M j, Y · g:i A') }} – {{ $request->end_datetime->format('g:i A') }}</p>
                         <p><strong>Venue:</strong> {{ $request->venue_name }}</p>
+                        @if($request->event_for)
+                            <p><strong>For (Offices/Officials):</strong> {{ $request->event_for }}</p>
+                        @endif
+                        @if($request->attention_to)
+                            <p><strong>Attention (Persons/Units):</strong> {{ $request->attention_to }}</p>
+                        @endif
                         <p class="od-muted" style="font-size:13.5px">{{ $request->description ?: 'No event description provided.' }}</p>
                         @if($request->planning_note)<p class="od-timeline__note" style="margin:0">Previous note: {{ $request->planning_note }}</p>@endif
                         @if($request->digital_documents)

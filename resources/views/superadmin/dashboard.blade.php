@@ -38,8 +38,9 @@
         <div class="od-alert od-alert--error">{{ $errors->first() }}</div>
     @endif
 
-    {{-- ===== Overview: all campuses; click to see the same numbers per campus ===== --}}
-    <details class="od-card po-overview" id="overview">
+    <div class="po-dashboard-top">
+        {{-- ===== Overview: all campuses; click to see the same numbers per campus ===== --}}
+        <details class="od-card po-overview" id="overview">
         <summary class="po-overview__summary">
             <span class="po-overview__head">
                 <span class="od-section-label" style="margin:0">Planning Office Overview{{ $selectedCampus ? ' · ' . $selectedCampus . ' + university-wide' : ' · All Campuses' }}</span>
@@ -89,7 +90,36 @@
                 </table>
             </div>
         </div>
-    </details>
+        </details>
+
+        {{-- ===== Analytics ===== --}}
+        <section class="od-card po-analytics" aria-labelledby="analytics-title">
+            <div class="od-card__head">
+                <div>
+                    <h2 id="analytics-title" class="od-card__title">Analytics</h2>
+                    <p class="od-card__sub">Approved events{{ $selectedCampus ? ' for ' . $selectedCampus . ' and university-wide' : '' }}{{ ($filters['from'] ?? null) || ($filters['to'] ?? null) ? ' in the selected date range' : '' }}. University-wide events are counted once, in their own group.</p>
+                </div>
+            </div>
+            <div class="po-charts">
+                <figure class="po-chart-card">
+                    <figcaption>Events by campus</figcaption>
+                    <div class="po-chart"><canvas id="chart-by-campus" aria-label="Events by campus"></canvas></div>
+                </figure>
+                <figure class="po-chart-card">
+                    <figcaption>Events by category (SDG)</figcaption>
+                    <div class="po-chart"><canvas id="chart-by-category" aria-label="Events by category"></canvas></div>
+                </figure>
+                <figure class="po-chart-card">
+                    <figcaption>Campus event trends <span>· monthly</span></figcaption>
+                    <div class="po-chart"><canvas id="chart-trends" aria-label="Monthly campus event trends"></canvas></div>
+                </figure>
+                <figure class="po-chart-card">
+                    <figcaption>Scheduling conflict overview <span>· {{ $summary['conflicts'] }} open · {{ $resolvedConflicts }} resolved{{ ($filters['from'] ?? null) || ($filters['to'] ?? null) ? ' in range' : '' }}</span></figcaption>
+                    <div class="po-chart"><canvas id="chart-conflicts" aria-label="Open conflicts by campus"></canvas></div>
+                </figure>
+            </div>
+        </section>
+    </div>
 
     {{-- ===== Pending approvals ===== --}}
     <section id="pending-approvals" class="od-card">
@@ -269,34 +299,6 @@
             <div id="event-list"></div>
         </section>
     </div>
-
-    {{-- ===== Analytics ===== --}}
-    <section class="od-card" aria-labelledby="analytics-title">
-        <div class="od-card__head">
-            <div>
-                <h2 id="analytics-title" class="od-card__title">Analytics</h2>
-                <p class="od-card__sub">Approved events{{ $selectedCampus ? ' for ' . $selectedCampus . ' and university-wide' : '' }}{{ ($filters['from'] ?? null) || ($filters['to'] ?? null) ? ' in the selected date range' : '' }}. University-wide events are counted once, in their own group.</p>
-            </div>
-        </div>
-        <div class="po-charts">
-            <figure class="po-chart-card">
-                <figcaption>Events by campus</figcaption>
-                <div class="po-chart"><canvas id="chart-by-campus" aria-label="Events by campus"></canvas></div>
-            </figure>
-            <figure class="po-chart-card">
-                <figcaption>Events by category (SDG)</figcaption>
-                <div class="po-chart"><canvas id="chart-by-category" aria-label="Events by category"></canvas></div>
-            </figure>
-            <figure class="po-chart-card">
-                <figcaption>Campus event trends <span>· monthly</span></figcaption>
-                <div class="po-chart"><canvas id="chart-trends" aria-label="Monthly campus event trends"></canvas></div>
-            </figure>
-            <figure class="po-chart-card">
-                <figcaption>Scheduling conflict overview <span>· {{ $summary['conflicts'] }} open · {{ $resolvedConflicts }} resolved{{ ($filters['from'] ?? null) || ($filters['to'] ?? null) ? ' in range' : '' }}</span></figcaption>
-                <div class="po-chart"><canvas id="chart-conflicts" aria-label="Open conflicts by campus"></canvas></div>
-            </figure>
-        </div>
-    </section>
 
     {{-- ===== Recent activity ===== --}}
     <section class="od-card">
