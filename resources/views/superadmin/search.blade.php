@@ -8,7 +8,7 @@
 
 @section('content')
     @if($offices->isEmpty() && $events->total() === 0)
-        <p class="od-empty">No results found.</p>
+        <div class="od-card">@include('partials.planning-office-empty-state', ['message' => 'No results found.'])</div>
     @else
         @if($offices->isNotEmpty())
             <section class="od-card">
