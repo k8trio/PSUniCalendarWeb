@@ -1,7 +1,7 @@
 @extends('layouts.planning-office')
 
 @section('title', 'Venue Management')
-@section('subheading', 'Review and manage the venues available for booking.')
+@section('subheading', 'Review and manage the venues available for event.')
 
 @section('content')
         @if($errors->any())
