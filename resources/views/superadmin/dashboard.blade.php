@@ -71,7 +71,6 @@
         </summary>
 
         <div class="po-overview__offices">
-            <p class="od-card__sub">Requests are grouped by the university office that submitted them.</p>
             <div class="od-table-wrap">
                 <table class="od-table po-overview__table">
                     <thead>
@@ -102,7 +101,6 @@
             <div class="od-card__head">
                 <div>
                     <h2 id="analytics-title" class="od-card__title">Analytics</h2>
-                    <p class="od-card__sub">Approved events grouped by submitting office{{ $selectedOffice ? ' (' . $selectedOffice . ')' : '' }}{{ ($filters['from'] ?? null) || ($filters['to'] ?? null) ? ' in the selected date range' : '' }}.</p>
                 </div>
             </div>
             <div class="po-charts">
