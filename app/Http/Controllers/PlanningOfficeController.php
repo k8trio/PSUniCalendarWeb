@@ -64,10 +64,6 @@ class PlanningOfficeController extends Controller
                 fn (EventRequest $event) => User::UNIVERSITY_OFFICE_ACCOUNT_LABELS[$event->email] ?? 'Other offices'
             ));
         $monthlyEvents = [];
-        $resolvedConflicts = ActivityLog::query()
-            ->where('action', 'conflict_resolved')
-            ->whereBetween('created_at', [$selectedYear['start'], $selectedYear['end']])
-            ->count();
         for ($month = $selectedYear['start']->copy()->startOfMonth(); $month <= $selectedYear['end']; $month->addMonth()) {
             $monthKey = $month->format('Y-m');
             $monthLabel = $month->format('M Y');
@@ -81,7 +77,6 @@ class PlanningOfficeController extends Controller
             'campusSpecific' => $approvedEvents->filter(fn (EventRequest $event) => $event->scope() === EventRequest::SCOPE_CAMPUS_SPECIFIC)->count(),
             'offices' => $officeBreakdown,
             'monthly' => $monthlyEvents,
-            'resolvedConflicts' => $resolvedConflicts,
         ];
 
         $events = (clone $archiveQuery)

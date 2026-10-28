@@ -178,7 +178,7 @@ class PlanningOfficeDashboard
 
     /**
      * Approved events only, coloured by scope. Submissions still under review (pending /
-     * conflict) never go on the calendar; they're in Pending Approvals and Scheduling Conflicts.
+     * conflict) never go on the calendar; they're handled in the review queue.
      */
     private function calendarEvents(Collection $events): Collection
     {
@@ -238,15 +238,15 @@ class PlanningOfficeDashboard
                 ->count())->all(),
         ]);
 
-        // Open conflicts by submitting office
-        $conflictsByOffice = $conflicts->countBy(fn ($row) => $bucketOf($row['request']));
-        $conflictsByOffice = collect($buckets)
-            ->mapWithKeys(fn ($office) => [$office => $conflictsByOffice->get($office, 0)]);
+        $scopeCounts = [
+            EventRequest::SCOPE_UNIVERSITY_WIDE => $approved->filter(fn ($e) => $e->scope() === EventRequest::SCOPE_UNIVERSITY_WIDE)->count(),
+            EventRequest::SCOPE_CAMPUS_SPECIFIC => $approved->filter(fn ($e) => $e->scope() === EventRequest::SCOPE_CAMPUS_SPECIFIC)->count(),
+        ];
 
         return [
             'byOffice' => ['labels' => $byOffice->keys()->all(), 'values' => $byOffice->values()->all()],
             'trends' => ['labels' => array_values($months), 'series' => $trendSeries->all()],
-            'conflicts' => ['labels' => $conflictsByOffice->keys()->all(), 'values' => $conflictsByOffice->values()->all()],
+            'scope' => ['labels' => ['University-wide', 'Campus-specific'], 'values' => array_values($scopeCounts)],
         ];
     }
 }

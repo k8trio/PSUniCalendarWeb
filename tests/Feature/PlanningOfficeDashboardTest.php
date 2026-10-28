@@ -165,9 +165,10 @@ test('dashboard groups event totals by submitting university office', function (
 
     $response->assertSee('function officeAcronym(name)')
         ->assertSee('label: officeAcronym(name)')
-        ->assertSee("labels: ['Open conflicts', 'Resolved conflicts']", false)
         ->assertSee('return officeAcronym(this.getLabelForValue(value))')
-        ->assertSee('charts.trends.series[name].some');
+        ->assertSee('charts.trends.series[name].some')
+        ->assertDontSee('Scheduling conflict overview')
+        ->assertDontSee('Scheduling Conflicts');
 
     expect($response->viewData('charts'))->not->toHaveKey('byCategory');
 
@@ -279,8 +280,6 @@ test('planning office archive lists the three most recent completed academic yea
         ->assertSee('Approved events by office')
         ->assertSee('September 2025')
         ->assertDontSee('Submitting office');
-    expect($response->viewData('analytics')['resolvedConflicts'])->toBe(0);
-
     $previousYearResponse = $this->get('/planning-office/archive?year=2024-2025')
         ->assertOk()
         ->assertSee('Previous year approved event')
@@ -290,7 +289,6 @@ test('planning office archive lists the three most recent completed academic yea
 
     expect($previousYearResponse->viewData('events')->pluck('id')->all())->toBe([$previousYear->id])
         ->and($previousYearResponse->viewData('analytics')['offices']['OFFICE OF THE VICE PRESIDENT FOR RESEARCH, EXTENSION, AND INNOVATION (OVPREI)'])->toBe(1);
-    expect($previousYearResponse->viewData('analytics')['resolvedConflicts'])->toBe(2);
 
     $this->get('/planning-office/archive?year=2023-2024')
         ->assertOk()

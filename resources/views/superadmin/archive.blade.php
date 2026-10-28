@@ -93,10 +93,6 @@
                 <p class="od-stat__label">Campus-specific</p>
                 <p class="od-stat__value">{{ $analytics['campusSpecific'] }}</p>
             </article>
-            <article class="od-stat od-stat--rejected">
-                <p class="od-stat__label">Resolved scheduling conflicts</p>
-                <p class="od-stat__value">{{ $analytics['resolvedConflicts'] }}</p>
-            </article>
         </section>
 
         <div class="od-card__head">
