@@ -229,10 +229,12 @@ test('planning office archive lists the three most recent completed academic yea
 
     $oldestArchived = dashboardEvent([
         'title' => 'Oldest archived event',
+        'email' => 'ovpaass@psu.local',
         'start_datetime' => Carbon::parse('2023-09-10 09:00:00'),
     ]);
     $previousYear = dashboardEvent([
         'title' => 'Previous year approved event',
+        'email' => 'ovprei@psu.local',
         'start_datetime' => Carbon::parse('2024-09-10 09:00:00'),
     ]);
     dashboardEvent([
@@ -242,6 +244,7 @@ test('planning office archive lists the three most recent completed academic yea
     ]);
     $latestArchived = dashboardEvent([
         'title' => 'Latest archived event',
+        'email' => 'op@psu.local',
         'start_datetime' => Carbon::parse('2025-09-10 09:00:00'),
     ]);
     dashboardEvent([
@@ -267,11 +270,13 @@ test('planning office archive lists the three most recent completed academic yea
         ->and($response->viewData('events')->pluck('id')->all())->toBe([$latestArchived->id])
         ->and($response->viewData('analytics')['total'])->toBe(1)
         ->and($response->viewData('analytics')['campusSpecific'])->toBe(1)
-        ->and($response->viewData('analytics'))->not->toHaveKey('offices');
+        ->and($response->viewData('analytics')['offices']['OFFICE OF THE PRESIDENT (OP)'])->toBe(1)
+        ->and($response->viewData('analytics')['offices']['OFFICE OF THE VICE PRESIDENT FOR RESEARCH, EXTENSION, AND INNOVATION (OVPREI)'])->toBe(0);
 
-    $response->assertSee('archive-campus-chart')
+    $response->assertSee('archive-office-chart')
         ->assertSee('archive-monthly-chart')
         ->assertSee('archive-scope-chart')
+        ->assertSee('Approved events by office')
         ->assertSee('September 2025')
         ->assertDontSee('Submitting office');
     expect($response->viewData('analytics')['resolvedConflicts'])->toBe(0);
@@ -283,7 +288,8 @@ test('planning office archive lists the three most recent completed academic yea
         ->assertDontSee('Previous year rejected event')
         ->assertDontSee('Current academic year event');
 
-    expect($previousYearResponse->viewData('events')->pluck('id')->all())->toBe([$previousYear->id]);
+    expect($previousYearResponse->viewData('events')->pluck('id')->all())->toBe([$previousYear->id])
+        ->and($previousYearResponse->viewData('analytics')['offices']['OFFICE OF THE VICE PRESIDENT FOR RESEARCH, EXTENSION, AND INNOVATION (OVPREI)'])->toBe(1);
     expect($previousYearResponse->viewData('analytics')['resolvedConflicts'])->toBe(2);
 
     $this->get('/planning-office/archive?year=2023-2024')
