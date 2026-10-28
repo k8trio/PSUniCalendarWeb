@@ -372,6 +372,28 @@ test('approving a conflict request records a conflict resolution', function () {
         ->and(ActivityLog::where('action', 'conflict_resolved')->exists())->toBeTrue();
 });
 
+test('approval and rejection cannot change requests that are no longer awaiting review', function () {
+    $approved = dashboardEvent([
+        'status' => 'approved',
+        'google_event_id' => 'existing-google-event',
+    ]);
+    $rejected = dashboardEvent(['status' => 'rejected']);
+
+    $this->actingAs($this->planning)
+        ->post("/planning-office/approve/{$approved->id}")
+        ->assertSessionHas('error', 'Only requests awaiting review can be approved.');
+    $this->post("/planning-office/reject/{$approved->id}")
+        ->assertSessionHas('error', 'Only requests awaiting review can be rejected.');
+    $this->post("/planning-office/approve/{$rejected->id}")
+        ->assertSessionHas('error', 'Only requests awaiting review can be approved.');
+    $this->post("/planning-office/reject/{$rejected->id}")
+        ->assertSessionHas('error', 'Only requests awaiting review can be rejected.');
+
+    expect($approved->refresh()->status)->toBe('approved')
+        ->and($approved->google_event_id)->toBe('existing-google-event')
+        ->and($rejected->refresh()->status)->toBe('rejected');
+});
+
 test('only the planning office can return requests', function () {
     $request = dashboardEvent(['status' => 'pending']);
     $office = User::factory()->create(['role' => 'office']);

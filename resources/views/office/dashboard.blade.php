@@ -815,7 +815,7 @@
             if (calendarElement) {
                 calendar = UniEventCalendar.init({
                     calendarEl: calendarElement,
-                    events: {!! isset($events) ? $events->toJson() : '[]' !!},
+                    events: @js(isset($events) ? $events : []),
                     officeFilterEl: document.getElementById('office-filter')
                 });
             }

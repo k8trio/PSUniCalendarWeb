@@ -16,6 +16,10 @@ class EventApprovalController extends Controller
     public function approve(Request $request, $id, EventConflictChecker $conflictChecker)
     {
         $booking = EventRequest::findOrFail($id);
+        if (! in_array($booking->status, EventRequest::REVIEW_STATUSES, true)) {
+            return back()->with('error', 'Only requests awaiting review can be approved.');
+        }
+
         $validated = $request->validate([
             'venue_name' => ['sometimes', 'required', 'string', 'max:255'],
             'campus' => ['sometimes', 'required', 'string', 'max:255'],
@@ -108,6 +112,10 @@ class EventApprovalController extends Controller
             'planning_note' => ['nullable', 'string', 'max:2000'],
         ]);
         $booking = EventRequest::findOrFail($id);
+        if (! in_array($booking->status, EventRequest::REVIEW_STATUSES, true)) {
+            return back()->with('error', 'Only requests awaiting review can be rejected.');
+        }
+
         $originalStatus = $booking->status;
         $booking->update([
             'status' => 'rejected',

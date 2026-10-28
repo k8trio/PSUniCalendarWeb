@@ -91,6 +91,31 @@ test('office dashboard calendar filters by university office instead of campus',
         ->assertDontSee('<option value="Alaminos Campus">', false);
 });
 
+test('office dashboard safely serializes event content for JavaScript', function () {
+    $payload = '</script><script>alert("calendar-xss")</script>';
+    $user = User::factory()->create([
+        'role' => 'office',
+        'campus' => User::UNIVERSITY_OFFICES,
+    ]);
+    EventRequest::create([
+        'name' => 'Planning Office',
+        'email' => 'planning@psu.local',
+        'title' => $payload,
+        'venue_name' => 'Main Hall',
+        'campus' => 'Lingayen Campus',
+        'description' => $payload,
+        'start_datetime' => now()->addDay(),
+        'end_datetime' => now()->addDay()->addHour(),
+        'status' => 'approved',
+        'is_university_wide' => true,
+    ]);
+
+    $this->actingAs($user)->get('/office')
+        ->assertOk()
+        ->assertDontSee($payload, false)
+        ->assertSee('calendar-xss');
+});
+
 test('office calendar event details include accessible advisory memo attachments', function () {
     Storage::fake('public');
     Storage::disk('public')->put('event-documents/signed-advisory.pdf', 'signed memo');
