@@ -337,6 +337,10 @@
 .ec-description { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--ec-navy-50); }
 .ec-description p { margin: 0; font-size: 14px; white-space: pre-line; }
 .ec-description__label { margin-bottom: 4px !important; font-size: 12px !important; font-weight: 500; color: var(--ec-muted); }
+.ec-documents { display: grid; gap: 8px; margin: 8px 0 0; padding-left: 20px; }
+.ec-documents a { color: var(--ec-navy-600); font-size: 14px; font-weight: 600; overflow-wrap: anywhere; }
+.ec-documents a:hover { color: var(--ec-navy-800); }
+.ec-documents a:focus-visible { outline: 2px solid var(--ec-navy-600); outline-offset: 2px; }
 .ec-muted { color: var(--ec-muted); }
 
 .ec-btn {

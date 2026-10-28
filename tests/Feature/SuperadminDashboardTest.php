@@ -15,7 +15,8 @@ test('planning office dashboard renders for authenticated office users', functio
     $response = $this->actingAs($user)->get('/planning-office');
 
     $response->assertStatus(200);
-    $response->assertSee('Planning Office Overview');
+    $response->assertSee('Planning Office Dashboard')
+        ->assertSee('Analytics');
 });
 
 test('planning office dashboard keeps the live master calendar visible', function () {

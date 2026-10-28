@@ -51,7 +51,9 @@
                         <tbody>
                             @foreach($events as $event)
                                 <tr>
-                                    <th scope="row" class="od-table__title">{{ $event->title }}</th>
+                                    <th scope="row" class="od-table__title">
+                                        <a class="od-link" href="{{ route('planning_office.events.show', ['event' => $event, 'q' => $query]) }}">{{ $event->title }}</a>
+                                    </th>
                                     <td>{{ $event->name }}</td>
                                     <td>{{ \App\Models\User::UNIVERSITY_OFFICE_ACCOUNT_LABELS[$event->email] ?? $officeNames[$event->email] ?? $event->email }}</td>
                                     <td>{{ $event->venue_name }}</td>

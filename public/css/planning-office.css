@@ -108,6 +108,8 @@ a.od-icon-btn { text-decoration: none; }
     gap: 20px;
     margin-bottom: 24px;
 }
+.po-overview { grid-row: 2; }
+.po-analytics { grid-row: 1; }
 .po-dashboard-top > .od-card { margin-bottom: 0; min-width: 0; }
 .po-dashboard-top .po-stat:first-child { padding: 11px; }
 .po-dashboard-top .po-stat:first-child .po-stat__icon { width: 32px; height: 32px; }
@@ -207,6 +209,18 @@ a.od-icon-btn { text-decoration: none; }
 .po-chart-card figcaption span { font-weight: 500; color: var(--muted); }
 .po-chart { position: relative; height: 190px; }
 .po-chart--office { height: 360px; }
+.po-chart-empty { margin-top: -6px; color: var(--muted); font-size: 12px; text-align: center; }
+.po-event-detail .od-card__head { align-items: flex-start; }
+.po-event-details {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px 24px;
+    margin: 0;
+}
+.po-event-details dt { color: var(--muted); font-size: 12px; font-weight: 600; }
+.po-event-details dd { margin: 3px 0 0; color: var(--text); white-space: pre-wrap; overflow-wrap: anywhere; }
+.po-event-details__wide { grid-column: 1 / -1; }
+.po-event-details__description { line-height: 1.65; }
 
 /* ==========================================================================
    Request review
@@ -273,12 +287,15 @@ a.od-icon-btn { text-decoration: none; }
 @media (max-width: 900px) {
     .po-charts { grid-template-columns: minmax(0, 1fr); }
     .po-chart { height: 240px; }
-    .po-chart--office { height: 360px; }
+    .po-chart--office { height: 320px; }
 }
 @media (max-width: 640px) {
     .po-review__form, .po-table-filters { grid-template-columns: minmax(0, 1fr); }
+    .po-event-details { grid-template-columns: minmax(0, 1fr); }
+    .po-event-details__wide { grid-column: auto; }
     .po-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .od-topbar { flex-wrap: wrap; }
     .od-topbar__actions { width: 100%; justify-content: flex-end; }
     .po-global-search { flex: 1 1 180px; }
+    .po-chart--office { height: 300px; }
 }

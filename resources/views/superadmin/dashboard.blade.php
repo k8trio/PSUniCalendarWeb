@@ -15,6 +15,7 @@
     $dash = \App\Services\PlanningOfficeDashboard::class;
     $statusLabel = fn ($status) => \App\Models\EventRequest::statusLabel($status);
     $selectedOffice = $filters['office'] ?? '';
+    $openConflictCount = array_sum($charts['conflicts']['values']);
     $activityLabels = [
         'submitted' => 'Submitted', 'edited' => 'Edited', 'cancelled' => 'Cancelled', 'approved' => 'Approved',
         'rejected' => 'Rejected', 'returned' => 'Returned', 'rescheduled' => 'Rescheduled', 'conflict_resolved' => 'Conflict resolved',
@@ -113,8 +114,11 @@
                     <div class="po-chart"><canvas id="chart-trends" aria-label="Monthly office event trends"></canvas></div>
                 </figure>
                 <figure class="po-chart-card">
-                    <figcaption>Scheduling conflict overview <span>· {{ $summary['conflicts'] }} open · {{ $resolvedConflicts }} resolved{{ ($filters['from'] ?? null) || ($filters['to'] ?? null) ? ' in range' : '' }}</span></figcaption>
-                    <div class="po-chart"><canvas id="chart-conflicts" aria-label="Open conflicts by office"></canvas></div>
+                    <figcaption>Scheduling conflict overview <span>· {{ $openConflictCount }} open · {{ $resolvedConflicts }} resolved{{ ($filters['from'] ?? null) || ($filters['to'] ?? null) ? ' in range' : '' }}</span></figcaption>
+                    <div class="po-chart"><canvas id="chart-conflicts" aria-label="Open and resolved scheduling conflicts"></canvas></div>
+                    @if($openConflictCount + $resolvedConflicts === 0)
+                        <p class="po-chart-empty">No active conflicts</p>
+                    @endif
                 </figure>
             </div>
         </section>
@@ -423,20 +427,9 @@
                         y: {
                             ticks: {
                                 autoSkip: false,
-                                callback: function (value) {
-                                    var words = this.getLabelForValue(value).split(' ');
-                                    var lines = [];
-                                    var line = '';
-                                    words.forEach(function (word) {
-                                        if (line && (line + ' ' + word).length > 32) {
-                                            lines.push(line);
-                                            line = '';
-                                        }
-                                        line += (line ? ' ' : '') + word;
-                                    });
-                                    if (line) lines.push(line);
-                                    return lines;
-                                }
+                                font: { size: 11 },
+                                padding: 8,
+                                callback: function (value) { return officeAcronym(this.getLabelForValue(value)); }
                             }
                         }
                     }
@@ -447,18 +440,27 @@
                 type: 'line',
                 data: {
                     labels: charts.trends.labels,
-                    datasets: Object.keys(charts.trends.series).map(function (name, i) {
+                    datasets: Object.keys(charts.trends.series).filter(function (name) {
+                        return charts.trends.series[name].some(function (count) { return count > 0; });
+                    }).map(function (name, i) {
                         var c = seriesColors[i % seriesColors.length];
                         return { label: officeAcronym(name), data: charts.trends.series[name], borderColor: c, backgroundColor: c, tension: .3, pointRadius: 3 };
                     })
                 },
-                options: { maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 10 } } }, scales: { y: countTicks } }
+                options: {
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, boxHeight: 10, padding: 8, font: { size: 10 } } } },
+                    scales: {
+                        x: { ticks: { maxRotation: 45, minRotation: 30, autoSkip: true, maxTicksLimit: 8, font: { size: 10 } } },
+                        y: { beginAtZero: true, ticks: { precision: 0, font: { size: 10 } } }
+                    }
+                }
             });
 
             new Chart(document.getElementById('chart-conflicts'), {
-                type: 'bar',
-                data: { labels: charts.conflicts.labels.map(officeAcronym), datasets: [{ label: 'Open conflicts', data: charts.conflicts.values, backgroundColor: '#be123c', borderRadius: 8 }] },
-                options: { maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: countTicks } }
+                type: 'pie',
+                data: { labels: ['Open conflicts', 'Resolved conflicts'], datasets: [{ label: 'Scheduling conflicts', data: [charts.conflicts.values.reduce(function (total, count) { return total + count; }, 0), @json($resolvedConflicts)], backgroundColor: ['#56639f', '#cbd0d9'] }] },
+                options: { maintainAspectRatio: false, plugins: { legend: { display: false } } }
             });
         });
     </script>

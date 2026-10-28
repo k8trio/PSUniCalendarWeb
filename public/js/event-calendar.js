@@ -140,6 +140,13 @@
         html += '</dl>';
         html += '<div class="ec-description"><p class="ec-description__label">Description</p><p>' +
             (ev.description ? esc(ev.description) : '<span class="ec-muted">No description provided.</span>') + '</p></div>';
+        if (Array.isArray(ev.documents) && ev.documents.length) {
+            html += '<div class="ec-description"><p class="ec-description__label">Advisory Memo / Supporting Evidence</p><ul class="ec-documents">';
+            ev.documents.forEach(function (document) {
+                html += '<li><a href="' + esc(document.url) + '" target="_blank" rel="noopener">' + esc(document.label || 'View memo') + '</a></li>';
+            });
+            html += '</ul></div>';
+        }
 
         m.querySelector('.ec-modal__body').innerHTML = html;
 

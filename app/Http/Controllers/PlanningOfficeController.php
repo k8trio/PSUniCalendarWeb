@@ -12,6 +12,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 
 class PlanningOfficeController extends Controller
@@ -65,6 +66,10 @@ class PlanningOfficeController extends Controller
                 $requests->where('title', 'like', $like)
                     ->orWhere('name', 'like', $like)
                     ->orWhere('venue_name', 'like', $like)
+                    ->orWhere('campus', 'like', $like)
+                    ->orWhere('event_for', 'like', $like)
+                    ->orWhere('attention_to', 'like', $like)
+                    ->orWhere('description', 'like', $like)
                     ->orWhere('email', 'like', $like);
 
                 if ($officeEmails !== []) {
@@ -78,6 +83,28 @@ class PlanningOfficeController extends Controller
         $officeNames = User::whereIn('role', ['office', 'planning_office'])->pluck('name', 'email');
 
         return view('superadmin.search', compact('query', 'offices', 'events', 'officeNames'));
+    }
+
+    public function showEvent(EventRequest $event)
+    {
+        return view('superadmin.event', compact('event'));
+    }
+
+    public function eventDocument(EventRequest $event, int $documentIndex)
+    {
+        $documents = $event->digital_documents ?? [];
+        abort_unless($documentIndex >= 1 && isset($documents[$documentIndex - 1]), 404);
+
+        $path = $documents[$documentIndex - 1];
+        abort_unless(
+            is_string($path)
+                && str_starts_with($path, 'event-documents/')
+                && basename($path) === substr($path, strlen('event-documents/')),
+            404
+        );
+        abort_unless(Storage::disk('public')->exists($path), 404);
+
+        return Storage::disk('public')->response($path, basename($path), [], 'inline');
     }
 
     public function showOffice(User $office)

@@ -24,6 +24,7 @@ Route::middleware(['auth', 'role:office'])->prefix('office')->group(function () 
     Route::get('/recent-activity', [OfficeController::class, 'recentActivity'])->name('office.recent-activity');
     Route::get('/recent-activity', [OfficeController::class, 'recentActivity'])->name('office.recent-activity');
     Route::get('/calendar', [OfficeController::class, 'calendar'])->name('office.calendar');
+    Route::get('/events/{event}/documents/{documentIndex}', [OfficeController::class, 'eventDocument'])->whereNumber('documentIndex')->name('office.events.documents.show');
     Route::post('/request-venue', [OfficeController::class, 'requestVenue'])->name('office.request');
     Route::get('/check-availability', [OfficeController::class, 'checkAvailability'])->name('office.availability');
 
@@ -55,6 +56,8 @@ Route::middleware(['auth', 'role:planning_office'])->prefix('planning-office')->
     Route::get('/calendar', [PlanningOfficeController::class, 'dashboard'])->name('planning_office.calendar');
     Route::get('/pending-approvals', [PlanningOfficeController::class, 'pendingApprovals'])->name('planning_office.pending');
     Route::get('/search', [PlanningOfficeController::class, 'search'])->name('planning_office.search');
+    Route::get('/events/{event}', [PlanningOfficeController::class, 'showEvent'])->name('planning_office.events.show');
+    Route::get('/events/{event}/documents/{documentIndex}', [PlanningOfficeController::class, 'eventDocument'])->whereNumber('documentIndex')->name('planning_office.events.documents.show');
     Route::post('/approve/{id}', [EventApprovalController::class, 'approve'])->name('planning_office.approve');
     Route::post('/reject/{id}', [EventApprovalController::class, 'reject'])->name('planning_office.reject');
     Route::post('/return/{id}', [EventApprovalController::class, 'returnForRevision'])->name('planning_office.return');
@@ -75,6 +78,9 @@ Route::middleware(['auth', 'role:planning_office'])->prefix('planning-office')->
     Route::patch('/settings/password', [PlanningOfficeController::class, 'updateSettingsPassword'])->name('planning_office.settings.password');
 });
 
+Route::get('/events/{event}/documents/{documentIndex}', [UserController::class, 'eventDocument'])
+    ->whereNumber('documentIndex')
+    ->name('user.events.documents.show');
 Route::get('/', [UserController::class, 'index'])->name('user.calendar');
 
 Route::domain('superadmin.unicalendar.test')->group(function () {

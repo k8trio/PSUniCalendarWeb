@@ -5,6 +5,7 @@ use App\Models\EventRequest;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Storage;
 
 uses(RefreshDatabase::class);
 
@@ -56,12 +57,51 @@ test('planning office search finds offices and event details', function () {
 
     $this->get('/planning-office/search?q=Planning+Symposium')
         ->assertOk()
-        ->assertSee('Planning Symposium');
+        ->assertSee('Planning Symposium')
+        ->assertSee(route('planning_office.events.show', ['event' => EventRequest::where('title', 'Planning Symposium')->first(), 'q' => 'Planning Symposium']), false);
 
     $this->get('/planning-office/search?q=Innovation+Hall')
         ->assertOk()
         ->assertSee('Planning Symposium')
         ->assertSee('Innovation Hall');
+});
+
+test('planning office can open searched event details and view its submitted memo', function () {
+    Storage::fake('public');
+    Storage::disk('public')->put('event-documents/planning-memo.pdf', 'memo file contents');
+    $event = dashboardEvent([
+        'name' => 'Alex Event Organizer',
+        'email' => 'op@psu.local',
+        'title' => 'Student Council Forum',
+        'venue_name' => 'Innovation Hall',
+        'campus' => 'Lingayen Campus',
+        'event_for' => 'Student Council',
+        'attention_to' => 'University Officials',
+        'description' => 'Annual coordination forum.',
+        'digital_documents' => ['event-documents/planning-memo.pdf'],
+    ]);
+
+    $this->actingAs($this->planning)
+        ->get('/planning-office/search?q=Student+Council')
+        ->assertOk()
+        ->assertSee('Student Council Forum')
+        ->assertSee(route('planning_office.events.show', ['event' => $event, 'q' => 'Student Council']), false);
+
+    $this->get(route('planning_office.events.show', ['event' => $event, 'q' => 'Student Council']))
+        ->assertOk()
+        ->assertSee('Annual coordination forum.')
+        ->assertSee('Student Council')
+        ->assertSee('University Officials')
+        ->assertSee('Memo attachment')
+        ->assertSee('Advisory Memo')
+        ->assertSee('Back to search results');
+
+    $documentResponse = $this->get(route('planning_office.events.documents.show', ['event' => $event, 'documentIndex' => 1]))
+        ->assertOk();
+    expect($documentResponse->headers->get('content-disposition'))
+        ->toContain('inline')
+        ->toContain('planning-memo.pdf');
+    Storage::disk('public')->assertExists('event-documents/planning-memo.pdf');
 });
 
 test('planning office notifications include a back-to-dashboard link', function () {
@@ -125,7 +165,9 @@ test('dashboard groups event totals by submitting university office', function (
 
     $response->assertSee('function officeAcronym(name)')
         ->assertSee('label: officeAcronym(name)')
-        ->assertSee('charts.conflicts.labels.map(officeAcronym)');
+        ->assertSee("labels: ['Open conflicts', 'Resolved conflicts']", false)
+        ->assertSee('return officeAcronym(this.getLabelForValue(value))')
+        ->assertSee('charts.trends.series[name].some');
 
     expect($response->viewData('charts'))->not->toHaveKey('byCategory');
 
@@ -264,14 +306,26 @@ test('only the planning office can return requests', function () {
 });
 
 test('the planning office calendar shows approved events only', function () {
-    dashboardEvent(['title' => 'Approved On Calendar']);
+    $approved = dashboardEvent([
+        'title' => 'Approved On Calendar',
+        'digital_documents' => ['event-documents/signed-advisory.pdf'],
+    ]);
     dashboardEvent(['title' => 'Pending Off Calendar', 'status' => 'pending']);
     dashboardEvent(['title' => 'Conflict Off Calendar', 'status' => 'conflict']);
 
-    $titles = $this->actingAs($this->planning)->get('/planning-office')->assertOk()
-        ->viewData('calendarEvents')->pluck('title')->all();
+    $response = $this->actingAs($this->planning)->get('/planning-office')->assertOk();
+    $calendarEvents = $response->viewData('calendarEvents');
 
-    expect($titles)->toBe(['Approved On Calendar']);
+    expect($calendarEvents->pluck('title')->all())->toBe(['Approved On Calendar'])
+        ->and($calendarEvents->first()['documents'])->toBe([
+            [
+                'label' => 'Advisory Memo',
+                'url' => route('planning_office.events.documents.show', [
+                    'event' => $approved,
+                    'documentIndex' => 1,
+                ]),
+            ],
+        ]);
 });
 
 test('pending and returned requests never appear on the public calendar', function () {

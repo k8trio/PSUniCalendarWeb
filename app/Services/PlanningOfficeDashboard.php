@@ -79,6 +79,10 @@ class PlanningOfficeDashboard
 
         $conflictRequests = $conflicts->pluck('request');
         $overviewConflictRequests = $overviewQueue->filter(fn (EventRequest $e) => $e->status === 'conflict' || $e->conflicts->isNotEmpty());
+        $resolvedConflicts = ActivityLog::where('action', 'conflict_resolved')
+            ->when($from, fn ($q) => $q->where('created_at', '>=', $from))
+            ->when($to, fn ($q) => $q->where('created_at', '<=', $to))
+            ->count();
 
         return [
             'summary' => $this->summary($overviewApproved, $overviewQueue, $overviewConflictRequests, $now),
@@ -100,10 +104,7 @@ class PlanningOfficeDashboard
             // The calendar is navigated by month, so it ignores the date range (office filter still applies)
             'calendarEvents' => $this->calendarEvents($officeEvents),
             'charts' => $this->charts($filtered, $approved, $conflicts, $from, $to),
-            'resolvedConflicts' => ActivityLog::where('action', 'conflict_resolved')
-                ->when($from, fn ($q) => $q->where('created_at', '>=', $from))
-                ->when($to, fn ($q) => $q->where('created_at', '<=', $to))
-                ->count(),
+            'resolvedConflicts' => $resolvedConflicts,
             'activity' => ActivityLog::whereIn('action', self::ACTIVITY_ACTIONS)->latest()->limit(10)->get(),
             'accountNames' => User::whereIn('role', ['office', 'planning_office'])->pluck('name', 'email'),
         ];
@@ -185,6 +186,16 @@ class PlanningOfficeDashboard
                     'university_wide' => $universityWide,
                     'office' => $e->name,
                     'status_label' => EventRequest::statusLabel($e->status),
+                    'documents' => collect($e->digital_documents ?? [])
+                        ->keys()
+                        ->map(fn ($index) => [
+                            'label' => 'Advisory Memo' . ($index > 0 ? ' ' . ($index + 1) : ''),
+                            'url' => route('planning_office.events.documents.show', [
+                                'event' => $e->id,
+                                'documentIndex' => $index + 1,
+                            ]),
+                        ])
+                        ->all(),
                     'color' => $color,
                     'class_names' => ['po-ev--' . $kind],
                 ];
