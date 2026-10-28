@@ -81,6 +81,10 @@
 
             <p class="od-nav-label">Account</p>
             <nav class="od-nav">
+                <a href="{{ route('planning_office.archive') }}" class="{{ $navClass(request()->routeIs('planning_office.archive')) }}">
+                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 7.5h16.5v12.75H3.75V7.5zM3 3.75h18v3.75H3V3.75zm6.75 7.5h4.5" /></svg>
+                    <span class="od-nav-text">Archive</span>
+                </a>
                 <a href="{{ route('planning_office.notifications') }}" class="{{ $navClass(request()->routeIs('planning_office.notifications')) }}">
                     <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.4-1.4A2 2 0 0118 14.2V11a6 6 0 10-12 0v3.2a2 2 0 01-.6 1.4L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
                     <span class="od-nav-text">Notifications</span>

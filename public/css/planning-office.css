@@ -195,6 +195,8 @@ a.od-icon-btn { text-decoration: none; }
     gap: 10px;
     margin-bottom: 14px;
 }
+.po-table-search { display: flex; gap: 8px; min-width: 0; }
+.po-table-search .od-input { flex: 1; min-width: 0; }
 .po-actions { flex-wrap: wrap; gap: 10px; }
 .od-link:disabled { color: var(--faint); cursor: not-allowed; text-decoration: none; }
 
@@ -290,6 +292,12 @@ a.od-icon-btn { text-decoration: none; }
 .po-inline-form .od-field { flex: 1 1 220px; }
 .po-stack { display: flex; flex-direction: column; gap: 24px; }
 .po-stack > .od-card { margin-bottom: 0; }
+.po-archive-filter .od-field { min-width: 180px; }
+.po-archive-stats { margin-bottom: 24px; }
+.po-archive-stats + .od-card__head { margin-top: 24px; }
+.po-archive-stats + .od-card__head + .po-charts { margin-bottom: 24px; }
+.po-archive-events-head { margin: 0 0 14px; }
+.po-archive-month th { padding: 10px 14px; background: var(--navy-50); color: var(--navy-700); font-size: 12px; }
 .po-sub { display: block; font-size: 12px; color: var(--muted); }
 .po-two-equal { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 

@@ -54,6 +54,7 @@ Route::post('/planning-office/logout', [PlanningOfficeAuthController::class, 'lo
 Route::middleware(['auth', 'role:planning_office'])->prefix('planning-office')->group(function () {
     Route::get('/', [PlanningOfficeController::class, 'dashboard'])->name('planning_office.dashboard');
     Route::get('/calendar', [PlanningOfficeController::class, 'dashboard'])->name('planning_office.calendar');
+    Route::get('/archive', [PlanningOfficeController::class, 'archive'])->name('planning_office.archive');
     Route::get('/pending-approvals', [PlanningOfficeController::class, 'pendingApprovals'])->name('planning_office.pending');
     Route::get('/search', [PlanningOfficeController::class, 'search'])->name('planning_office.search');
     Route::get('/events/{event}', [PlanningOfficeController::class, 'showEvent'])->name('planning_office.events.show');

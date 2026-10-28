@@ -16,7 +16,9 @@ test('planning office dashboard renders for authenticated office users', functio
 
     $response->assertStatus(200);
     $response->assertSee('Planning Office Dashboard')
-        ->assertSee('Analytics');
+        ->assertSee('Analytics')
+        ->assertSee('data-search-button', false)
+        ->assertSee('Search pending approvals');
 });
 
 test('planning office dashboard keeps the live calendar visible without an extra title card', function () {
@@ -31,6 +33,24 @@ test('planning office dashboard keeps the live calendar visible without an extra
     $response->assertSee('planning-office-calendar', false);
     $response->assertDontSee('Master Live Calendar');
     $this->get('/superadmin/calendar')->assertNotFound();
+});
+
+test('planning office dashboard links office summary rows to their office pages', function () {
+    $planningOffice = User::factory()->create([
+        'email' => 'planning-office-office-links@example.com',
+        'role' => 'planning_office',
+    ]);
+    $office = User::factory()->create([
+        'name' => 'Office of the President',
+        'email' => 'op@psu.local',
+        'role' => 'office',
+    ]);
+
+    $response = $this->actingAs($planningOffice)->get('/planning-office');
+
+    $response->assertOk()
+        ->assertSee(route('planning_office.offices.show', $office), false)
+        ->assertSee('OFFICE OF THE PRESIDENT (OP)');
 });
 
 test('planning office dashboard shows office event totals and upcoming events summary', function () {

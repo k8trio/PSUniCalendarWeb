@@ -34,6 +34,64 @@ class PlanningOfficeController extends Controller
         return view('superadmin.dashboard', $data + ['filters' => array_filter($filters)]);
     }
 
+    public function archive(Request $request)
+    {
+        $currentAcademicYear = PlanningOfficeDashboard::academicYearRange()[0];
+        $academicYears = collect(range(1, 3))
+            ->map(function (int $yearsAgo) use ($currentAcademicYear) {
+                [$start, $end] = PlanningOfficeDashboard::academicYearRangeForStartYear($currentAcademicYear->year - $yearsAgo);
+
+                return [
+                    'label' => $start->format('Y') . '-' . $end->format('Y'),
+                    'start' => $start,
+                    'end' => $end,
+                ];
+            });
+
+        $validated = $request->validate([
+            'year' => ['nullable', Rule::in($academicYears->pluck('label')->all())],
+        ]);
+        $selectedYear = $academicYears->firstWhere('label', $validated['year'] ?? null) ?? $academicYears->first();
+
+        $archiveQuery = EventRequest::query()
+            ->where('status', 'approved')
+            ->where('end_datetime', '>=', $selectedYear['start'])
+            ->where('start_datetime', '<=', $selectedYear['end']);
+
+        $approvedEvents = (clone $archiveQuery)->get();
+        $campusBreakdown = $approvedEvents
+            ->groupBy(fn (EventRequest $event) => PlanningOfficeDashboard::campusLabel($event))
+            ->map(fn ($events) => $events->count())
+            ->sortDesc();
+        $monthlyEvents = [];
+        $resolvedConflicts = ActivityLog::query()
+            ->where('action', 'conflict_resolved')
+            ->whereBetween('created_at', [$selectedYear['start'], $selectedYear['end']])
+            ->count();
+        for ($month = $selectedYear['start']->copy()->startOfMonth(); $month <= $selectedYear['end']; $month->addMonth()) {
+            $monthKey = $month->format('Y-m');
+            $monthLabel = $month->format('M Y');
+            $monthlyEvents[$monthLabel] = $approvedEvents
+                ->filter(fn (EventRequest $event) => $event->start_datetime->format('Y-m') === $monthKey)
+                ->count();
+        }
+        $analytics = [
+            'total' => $approvedEvents->count(),
+            'universityWide' => $approvedEvents->filter(fn (EventRequest $event) => $event->scope() === EventRequest::SCOPE_UNIVERSITY_WIDE)->count(),
+            'campusSpecific' => $approvedEvents->filter(fn (EventRequest $event) => $event->scope() === EventRequest::SCOPE_CAMPUS_SPECIFIC)->count(),
+            'campuses' => $campusBreakdown,
+            'monthly' => $monthlyEvents,
+            'resolvedConflicts' => $resolvedConflicts,
+        ];
+
+        $events = (clone $archiveQuery)
+            ->orderBy('start_datetime')
+            ->paginate(25)
+            ->withQueryString();
+
+        return view('superadmin.archive', compact('academicYears', 'selectedYear', 'events', 'analytics'));
+    }
+
     public function search(Request $request)
     {
         $validated = $request->validate([

@@ -85,7 +85,13 @@
                     <tbody>
                         @foreach($officeSummaries as $officeName => $officeSummary)
                             <tr>
-                                <th scope="row" class="od-table__title">{{ $officeName }}</th>
+                                <th scope="row" class="od-table__title">
+                                    @if($office = $officeAccounts->get($officeName))
+                                        <a class="od-link" href="{{ route('planning_office.offices.show', $office) }}">{{ $officeName }}</a>
+                                    @else
+                                        {{ $officeName }}
+                                    @endif
+                                </th>
                                 @foreach($cards as [$label, $key, $modifier])
                                     <td class="{{ $officeSummary[$key] && in_array($modifier, ['approved', 'pending', 'rejected']) ? 'od-text-' . $modifier : '' }}">{{ $officeSummary[$key] }}</td>
                                 @endforeach
@@ -134,7 +140,10 @@
         </div>
 
         <div class="po-table-filters" id="pending-filters">
-            <input type="search" data-filter="q" placeholder="Search title, organizer or venue..." class="od-input od-input--sm" aria-label="Search pending approvals">
+            <div class="po-table-search">
+                <input type="search" data-filter="q" placeholder="Search title, organizer or venue..." class="od-input od-input--sm" aria-label="Search pending approvals">
+                <button type="button" class="od-btn od-btn--primary od-btn--sm" data-search-button>Search</button>
+            </div>
             <select data-filter="status" class="od-input od-input--sm" aria-label="Status">
                 <option value="">All statuses</option>
                 <option value="pending">Pending</option>
@@ -372,6 +381,7 @@
             }
             filterBox.addEventListener('input', applyFilters);
             filterBox.addEventListener('change', applyFilters);
+            filterBox.querySelector('[data-search-button]').addEventListener('click', applyFilters);
 
             // ---- Reject / return dialog ----
             var modal = document.getElementById('decision-modal');

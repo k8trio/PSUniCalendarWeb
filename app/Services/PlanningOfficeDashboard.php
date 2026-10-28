@@ -98,6 +98,10 @@ class PlanningOfficeDashboard
                     $overviewConflictRequests->filter(fn ($e) => $this->officeBucket($e) === $bucket),
                     $now,
                 )]),
+            'officeAccounts' => User::where('role', 'office')
+                ->whereIn('email', array_keys(User::UNIVERSITY_OFFICE_ACCOUNT_LABELS))
+                ->get()
+                ->keyBy(fn (User $user) => User::UNIVERSITY_OFFICE_ACCOUNT_LABELS[$user->email]),
             'queue' => $queue,
             'conflicts' => $conflicts,
             'upcoming' => $approved->filter(fn ($e) => $e->start_datetime > $now)->take(7)->values(),
@@ -119,7 +123,14 @@ class PlanningOfficeDashboard
             $start->subYear();
         }
 
-        $end = $start->copy()->setDate($start->year + 1, 5, 28)->endOfDay();
+        return self::academicYearRangeForStartYear($start->year);
+    }
+
+    /** @return array{Carbon, Carbon} */
+    public static function academicYearRangeForStartYear(int $startYear): array
+    {
+        $start = Carbon::create($startYear, 8, 10)->startOfDay();
+        $end = Carbon::create($startYear + 1, 5, 28)->endOfDay();
 
         return [$start, $end];
     }

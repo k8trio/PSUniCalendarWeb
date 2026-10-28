@@ -224,6 +224,76 @@ test('overview totals include only events in the current academic year', functio
         ->assertSee('May 28, 2027');
 });
 
+test('planning office archive lists the three most recent completed academic years', function () {
+    $this->travelTo(Carbon::parse('2026-10-27 12:00:00'));
+
+    $oldestArchived = dashboardEvent([
+        'title' => 'Oldest archived event',
+        'start_datetime' => Carbon::parse('2023-09-10 09:00:00'),
+    ]);
+    $previousYear = dashboardEvent([
+        'title' => 'Previous year approved event',
+        'start_datetime' => Carbon::parse('2024-09-10 09:00:00'),
+    ]);
+    dashboardEvent([
+        'title' => 'Previous year rejected event',
+        'start_datetime' => Carbon::parse('2024-09-11 09:00:00'),
+        'status' => 'rejected',
+    ]);
+    $latestArchived = dashboardEvent([
+        'title' => 'Latest archived event',
+        'start_datetime' => Carbon::parse('2025-09-10 09:00:00'),
+    ]);
+    dashboardEvent([
+        'title' => 'Current academic year event',
+        'start_datetime' => Carbon::parse('2026-09-10 09:00:00'),
+    ]);
+    dashboardEvent([
+        'title' => 'Outside academic year',
+        'start_datetime' => Carbon::parse('2025-07-10 09:00:00'),
+    ]);
+    $septemberConflict = ActivityLog::record('planning@psu.local', 'conflict_resolved', 'Resolved September conflict');
+    $septemberConflict->forceFill(['created_at' => Carbon::parse('2024-09-15 12:00:00')])->save();
+    $mayConflict = ActivityLog::record('planning@psu.local', 'conflict_resolved', 'Resolved May conflict');
+    $mayConflict->forceFill(['created_at' => Carbon::parse('2025-05-15 12:00:00')])->save();
+    $outsideYearConflict = ActivityLog::record('planning@psu.local', 'conflict_resolved', 'Outside archive year');
+    $outsideYearConflict->forceFill(['created_at' => Carbon::parse('2025-06-15 12:00:00')])->save();
+
+    $response = $this->actingAs($this->planning)->get('/planning-office/archive')->assertOk();
+    $academicYears = $response->viewData('academicYears');
+
+    expect($academicYears->pluck('label')->all())->toBe(['2025-2026', '2024-2025', '2023-2024'])
+        ->and($response->viewData('selectedYear')['label'])->toBe('2025-2026')
+        ->and($response->viewData('events')->pluck('id')->all())->toBe([$latestArchived->id])
+        ->and($response->viewData('analytics')['total'])->toBe(1)
+        ->and($response->viewData('analytics')['campusSpecific'])->toBe(1)
+        ->and($response->viewData('analytics'))->not->toHaveKey('offices');
+
+    $response->assertSee('archive-campus-chart')
+        ->assertSee('archive-monthly-chart')
+        ->assertSee('archive-scope-chart')
+        ->assertSee('September 2025')
+        ->assertDontSee('Submitting office');
+    expect($response->viewData('analytics')['resolvedConflicts'])->toBe(0);
+
+    $previousYearResponse = $this->get('/planning-office/archive?year=2024-2025')
+        ->assertOk()
+        ->assertSee('Previous year approved event')
+        ->assertSee('September 2024')
+        ->assertDontSee('Previous year rejected event')
+        ->assertDontSee('Current academic year event');
+
+    expect($previousYearResponse->viewData('events')->pluck('id')->all())->toBe([$previousYear->id]);
+    expect($previousYearResponse->viewData('analytics')['resolvedConflicts'])->toBe(2);
+
+    $this->get('/planning-office/archive?year=2023-2024')
+        ->assertOk()
+        ->assertSee('Oldest archived event');
+
+    $this->get('/planning-office/archive?year=2022-2023')
+        ->assertSessionHasErrors('year');
+});
+
 test('office filter keeps requests submitted by that office regardless of event campus', function () {
     dashboardEvent(['title' => 'Lingayen Intrams', 'email' => 'op@psu.local']);
     dashboardEvent(['title' => 'Binmaley Fair', 'email' => 'ovpafm@psu.local', 'campus' => 'Binmaley Campus', 'venue_name' => 'Binmaley Hall']);
