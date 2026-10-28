@@ -37,9 +37,12 @@ class PlanningOfficeDashboard
         $inRange = fn (EventRequest $e) => (! $from || $e->end_datetime >= $from)
             && (! $to || $e->start_datetime <= $to);
 
-        $officeEvents = EventRequest::orderBy('start_datetime')->get()->filter($inOffice)->values();
-        $overviewEvents = $officeEvents->filter(fn (EventRequest $e) => $e->end_datetime >= $academicYearStart
-            && $e->start_datetime <= $academicYearEnd)->values();
+        $officeEvents = EventRequest::orderBy('start_datetime')->get()
+            ->filter(fn (EventRequest $e) => $inOffice($e)
+                && $e->end_datetime >= $academicYearStart
+                && $e->start_datetime <= $academicYearEnd)
+            ->values();
+        $overviewEvents = $officeEvents;
         $filtered = $officeEvents->filter($inRange)->values();
         $approved = $filtered->where('status', 'approved')->values();
         $overviewApproved = $overviewEvents->where('status', 'approved')->values();
@@ -79,11 +82,6 @@ class PlanningOfficeDashboard
 
         $conflictRequests = $conflicts->pluck('request');
         $overviewConflictRequests = $overviewQueue->filter(fn (EventRequest $e) => $e->status === 'conflict' || $e->conflicts->isNotEmpty());
-        $resolvedConflicts = ActivityLog::where('action', 'conflict_resolved')
-            ->when($from, fn ($q) => $q->where('created_at', '>=', $from))
-            ->when($to, fn ($q) => $q->where('created_at', '<=', $to))
-            ->count();
-
         return [
             'summary' => $this->summary($overviewApproved, $overviewQueue, $overviewConflictRequests, $now),
             'academicYear' => [
@@ -107,9 +105,12 @@ class PlanningOfficeDashboard
             'upcoming' => $approved->filter(fn ($e) => $e->start_datetime > $now)->take(7)->values(),
             // The calendar is navigated by month, so it ignores the date range (office filter still applies)
             'calendarEvents' => $this->calendarEvents($officeEvents),
-            'charts' => $this->charts($filtered, $approved, $conflicts, $from, $to),
-            'resolvedConflicts' => $resolvedConflicts,
-            'activity' => ActivityLog::whereIn('action', self::ACTIVITY_ACTIONS)->latest()->limit(10)->get(),
+            'charts' => $this->charts($filtered, $approved, $from, $to, $academicYearStart, $academicYearEnd),
+            'activity' => ActivityLog::whereIn('action', self::ACTIVITY_ACTIONS)
+                ->whereBetween('created_at', [$academicYearStart, $academicYearEnd])
+                ->latest()
+                ->limit(10)
+                ->get(),
             'accountNames' => User::whereIn('role', ['office', 'planning_office'])->pluck('name', 'email'),
         ];
     }
@@ -214,7 +215,14 @@ class PlanningOfficeDashboard
             ->values();
     }
 
-    private function charts(Collection $requests, Collection $approved, Collection $conflicts, ?Carbon $from, ?Carbon $to): array
+    private function charts(
+        Collection $requests,
+        Collection $approved,
+        ?Carbon $from,
+        ?Carbon $to,
+        Carbon $academicYearStart,
+        Carbon $academicYearEnd,
+    ): array
     {
         $bucketOf = fn (EventRequest $e) => $this->officeBucket($e);
         $buckets = $this->officeBuckets($requests);
@@ -223,9 +231,11 @@ class PlanningOfficeDashboard
         $byOffice = collect($buckets)->mapWithKeys(fn ($b) => [$b => $approved->filter(fn ($e) => $bucketOf($e) === $b)->count()]);
 
         // Monthly trends: the selected range, or the 12 months around today
-        $start = ($from ?? now()->subMonths(6))->copy()->startOfMonth();
-        $end = ($to ?? now()->addMonths(5))->copy()->startOfMonth();
-        if ($start->diffInMonths($end) > 23) {
+        $start = ($from ?? now()->subMonths(6))->copy()->startOfMonth()
+            ->max($academicYearStart->copy()->startOfMonth());
+        $end = ($to ?? now()->addMonths(5))->copy()->startOfMonth()
+            ->min($academicYearEnd->copy()->startOfMonth());
+        if ($start->lte($end) && $start->diffInMonths($end) > 23) {
             $start = $end->copy()->subMonths(23);
         }
         $months = [];
