@@ -1,6 +1,7 @@
 @props([
-    'title', 'portal', 'heading', 'blurb', 'action',
-    'points' => [], 'otherText' => null, 'otherLabel' => null, 'otherUrl' => null,
+    'title', 'portal', 'action',
+    'heading' => null, 'blurb' => null, 'points' => [],
+    'otherText' => null, 'otherLabel' => null, 'otherUrl' => null,
 ])
 @php
     // Finds public/images/<name>.<any extension>, so .png/.jpg/.webp all work.
@@ -24,9 +25,9 @@
 <main class="login">
     <section class="hero" @if($bg) style="--hero:url('{{ $bg }}')" @endif aria-label="About this portal">
         <div class="hero__copy">
-            <p class="eyebrow">UniCalendar</p>
-            <p class="hero__title">{{ $heading }}</p>
-            <p class="hero__blurb">{{ $blurb }}</p>
+
+            @if($heading)<p class="hero__title">{{ $heading }}</p>@endif
+            @if($blurb)<p class="hero__blurb">{{ $blurb }}</p>@endif
             @if (count($points))
                 <ul class="points">@foreach ($points as $p)<li>{{ $p }}</li>@endforeach</ul>
             @endif
@@ -69,11 +70,6 @@
                 <label class="remember"><input type="checkbox" name="remember" value="1" @checked(old('remember'))> Keep me signed in on this device</label>
                 <button type="submit" class="btn" id="submit-btn"><span>Sign in</span></button>
             </form>
-
-            @if ($otherUrl)
-                <p class="switch">{{ $otherText }} <a href="{{ $otherUrl }}">{{ $otherLabel }}</a></p>
-            @endif
-            <p class="legal">© {{ date('Y') }} Pangasinan State University · UniCalendar</p>
         </div>
     </section>
 </main>
