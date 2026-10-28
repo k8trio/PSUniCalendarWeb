@@ -313,15 +313,15 @@
                             <label class="od-audience__option">
                                 <input type="radio" name="is_university_wide" value="0" {{ old('is_university_wide', '0') !== '1' ? 'checked' : '' }} />
                                 <span>
-                                    <strong>This campus only</strong>
+                                    <strong>Specific Campus Only</strong>
                                     <small>Only offices of the selected campus will see it (e.g. Intrams).</small>
                                 </span>
                             </label>
                             <label class="od-audience__option">
                                 <input type="radio" name="is_university_wide" value="1" {{ old('is_university_wide') === '1' ? 'checked' : '' }} />
                                 <span>
-                                    <strong>All campuses</strong>
-                                    <small>Every campus sees it, even if it's held at one campus (e.g. a University Meet).</small>
+                                    <strong>University Wide</strong>
+                                    <small>Visible to all university offices and campuses (e.g. University Meet, Executive Meeting).</small>
                                 </span>
                             </label>
                         </div>
