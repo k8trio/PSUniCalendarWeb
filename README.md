@@ -1,58 +1,62 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Pangasinan State University Event Calendar
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+PSU UniCalendar is a web-based system for publishing university events and managing event requests. It gives the public a central calendar of approved events and gives university offices and the Planning Office tools to submit, review, and manage those events.
 
-## About Laravel
+## How the system works
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+1. An authenticated university office submits an event request with its schedule, venue, audience, and other event details.
+2. The Planning Office reviews the request and can approve it, reject it, or return it for revision.
+3. Approved events appear on the public calendar. Visitors can filter events by the submitting university office and open an event to see its details.
+4. Office users can view their request statuses and the approved events available to them. Planning Office users can oversee requests, offices, venues, and calendar activity.
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+Event venue or campus information is shown as event detail; the calendar office filter identifies the office that submitted the event.
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+## User roles
 
-## Learning Laravel
+- **Public visitor:** Can view approved events on the read-only public calendar and filter them by university office.
+- **Office (Admin):** Can sign in to submit and manage event requests for their office, track request status, and use the calendar features permitted for their account.
+- **Planning Office (Superadmin):** Can review event requests, approve or reject them, return requests for revision, and manage venues, office information, notifications, and system-wide event oversight.
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+Access to staff features is protected by authentication and role-based route permissions.
 
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+## Technology
 
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
+- Laravel and PHP
+- Blade, HTML, CSS, and JavaScript
+- FullCalendar for calendar display
+- The database configured for the application
 
-## Agentic Development
+## Local development
 
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+1. Install PHP/Composer and Node.js/npm dependencies:
 
-```bash
-composer require laravel/boost --dev
+   ```sh
+   composer install
+   npm install
+   ```
 
-php artisan boost:install
+2. Create a local environment file from `.env.example`, configure the database, and generate the application key:
+
+   ```sh
+   cp .env.example .env
+   php artisan key:generate
+   ```
+
+3. Run database migrations and build the frontend assets:
+
+   ```sh
+   php artisan migrate
+   npm run build
+   ```
+
+4. Start the Laravel development server:
+
+   ```sh
+   php artisan serve
+   ```
+
+Run the automated test suite with:
+
+```sh
+php artisan test
 ```
-
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
-
-## Contributing
-
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
-
-## Code of Conduct
-
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
-
-## Security Vulnerabilities
-
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
-
-## License
-
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).

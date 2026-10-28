@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Carbon;
 use App\Models\Venue;
+use App\Models\User;
 
 class OfficeController extends Controller
 {
@@ -29,9 +30,6 @@ class OfficeController extends Controller
             ->filter(fn ($event) => $event->isVisibleTo($user))
             ->values();
 
-        // Campus filter on the calendar: only the campuses this office can actually see
-        $calendarCampuses = $user->isCampusOffice() ? [$user->campus] : \App\Models\User::CAMPUSES;
-
         $events = $approvedEvents
             ->sortBy('start_datetime')
             ->map(function ($event) {
@@ -44,7 +42,7 @@ class OfficeController extends Controller
                     'campus' => $event->venueCampus(),
                     'university_wide' => (bool) $event->is_university_wide,
                     'office' => $event->name,
-                    'sdg_number' => $event->sdg_number,
+                    'office_filter' => User::UNIVERSITY_OFFICE_ACCOUNT_LABELS[$event->email] ?? 'Other offices',
                 ];
             })
             ->values();   // re-index after sortBy so it becomes a JSON list, not an object
@@ -139,7 +137,6 @@ class OfficeController extends Controller
             'approvedThisMonth',
             'unreadNotifications',
             'allNotifications',
-            'calendarCampuses',
             'reminder',
             'favoriteVenues',
             'recentActivity',
@@ -272,7 +269,6 @@ class OfficeController extends Controller
             'campus' => $isUniversityWide
                 ? ['nullable', 'string', 'max:255']
                 : ['required', 'string', \Illuminate\Validation\Rule::in(\App\Models\User::CAMPUSES)],
-            'sdg_number' => ['nullable', 'integer', 'between:1,17'],
             'is_university_wide' => ['nullable', 'boolean'],
             'start_datetime' => 'required|date',
             'end_datetime' => 'required|date|after:start_datetime',
@@ -329,7 +325,6 @@ class OfficeController extends Controller
                 'attention_to' => $validated['attention_to'] ?? null,
                 'campus' => $campus,
                 'is_university_wide' => $isUniversityWide,
-                'sdg_number' => $request->input('sdg_number'),
                 'description' => $request->input('description', ''),
                 'start_datetime' => $request->input('start_datetime'),
                 'end_datetime' => $request->input('end_datetime'),
@@ -354,7 +349,6 @@ class OfficeController extends Controller
             'attention_to' => $validated['attention_to'] ?? null,
             'campus' => $campus,
             'is_university_wide' => $isUniversityWide,
-            'sdg_number' => $request->input('sdg_number'),
             'description' => $request->input('description', ''),
             'start_datetime' => $request->input('start_datetime'),
             'end_datetime' => $request->input('end_datetime'),
@@ -382,7 +376,6 @@ class OfficeController extends Controller
             'attention_to' => $original->attention_to,
             'campus' => $original->campus,
             'is_university_wide' => $original->is_university_wide ? '1' : '0',
-            'sdg_number' => $original->sdg_number,
             'description' => $original->description,
             'start_datetime' => optional($original->start_datetime)->format('Y-m-d\TH:i'),
             'end_datetime' => optional($original->end_datetime)->format('Y-m-d\TH:i'),
@@ -409,7 +402,6 @@ class OfficeController extends Controller
             'attention_to' => $original->attention_to,
             'campus' => $original->campus,
             'is_university_wide' => $original->is_university_wide ? '1' : '0',
-            'sdg_number' => $original->sdg_number,
             'description' => $original->description,
             'start_datetime' => optional($original->start_datetime)->format('Y-m-d\TH:i'),
             'end_datetime' => optional($original->end_datetime)->format('Y-m-d\TH:i'),

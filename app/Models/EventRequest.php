@@ -19,7 +19,6 @@ class EventRequest extends Model
         'attention_to',
         'campus',
         'is_university_wide',
-        'sdg_number',
         'description',
         'start_datetime',
         'end_datetime',
@@ -32,7 +31,6 @@ class EventRequest extends Model
 
     protected $casts = [
         'digital_documents' => 'array',
-        'sdg_number' => 'integer',
         'is_university_wide' => 'boolean',
         'start_datetime' => 'datetime',
         'end_datetime' => 'datetime',

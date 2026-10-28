@@ -21,7 +21,6 @@ class EventApprovalController extends Controller
             'campus' => ['sometimes', 'required', 'string', 'max:255'],
             'start_datetime' => ['sometimes', 'required', 'date'],
             'end_datetime' => ['sometimes', 'required', 'date', 'after_or_equal:start_datetime'],
-            'sdg_number' => ['sometimes', 'nullable', 'integer', 'between:1,17'],
             'is_university_wide' => ['sometimes', 'boolean'],
             'planning_note' => ['nullable', 'string', 'max:2000'],
         ]);
@@ -49,9 +48,6 @@ class EventApprovalController extends Controller
         $originalStatus = $booking->status;
         $booking->fill($proposal);
         $rescheduled = $booking->isDirty(['venue_name', 'campus', 'start_datetime', 'end_datetime']);
-        if (array_key_exists('sdg_number', $validated)) {
-            $booking->sdg_number = $validated['sdg_number'];
-        }
         if (array_key_exists('is_university_wide', $validated)) {
             $booking->is_university_wide = (bool) $validated['is_university_wide'];
         }

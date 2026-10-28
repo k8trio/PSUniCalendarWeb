@@ -15,7 +15,7 @@
  * Usage:
  *   UniEventCalendar.init({
  *       calendarEl: el, events: [...],            // required
- *       campusFilterEl: select,                    // optional "All Campus" filter
+ *       officeFilterEl: select,                     // optional "All Offices" filter
  *       listEl: el, listLabelEl: el,               // optional "Events for selected date" panel
  *   });
  */
@@ -136,7 +136,6 @@
             html += row('Open to', ev.university_wide ? 'All campuses' : 'This campus only');
         }
         if (ev.office) html += row('Organizer', esc(ev.office));
-        if (ev.sdg_number) html += row('SDG', 'SDG ' + esc(ev.sdg_number));
         if (ev.status_label) html += row('Status', esc(ev.status_label));
         html += '</dl>';
         html += '<div class="ec-description"><p class="ec-description__label">Description</p><p>' +
@@ -192,15 +191,14 @@
     function init(opts) {
         // Accept a list or a keyed object (a sorted Laravel collection serialises as {"1": …, "0": …})
         var allEvents = Array.isArray(opts.events) ? opts.events : Object.values(opts.events || {});
-        var campus = 'All Campus';
+        var office = 'All Offices';
         var selectedKey = null;                  // nothing selected until a date is clicked
         var selectedCell = null;
         var calendar;
 
         function filtered() {
-            if (campus === 'All Campus') return allEvents;
-            // Events open to all campuses show under every campus filter
-            return allEvents.filter(function (ev) { return ev.campus === campus || ev.university_wide; });
+            if (office === 'All Offices') return allEvents;
+            return allEvents.filter(function (ev) { return ev.office_filter === office; });
         }
 
         // Events are drawn on their start date only: the bar is cut off at the end of
@@ -331,9 +329,9 @@
             }
         }, opts.fcOptions || {}));
 
-        if (opts.campusFilterEl) {
-            opts.campusFilterEl.addEventListener('change', function () {
-                campus = this.value;
+        if (opts.officeFilterEl) {
+            opts.officeFilterEl.addEventListener('change', function () {
+                office = this.value;
                 calendar.removeAllEvents();
                 calendar.addEventSource(filtered().map(toFc));
                 if (selectedKey) renderDay(selectedKey);

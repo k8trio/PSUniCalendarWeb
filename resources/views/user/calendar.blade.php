@@ -57,11 +57,12 @@
             <div class="mb-4 flex justify-end">
                 <label class="flex items-center gap-2 text-sm font-medium text-slate-700">
                     <span>Filter:</span>
-                    <select id="campus-filter" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a5690]/30 focus:border-[#4a5690]">
-                        <option value="All Campus">All Offices</option>
-                        @foreach(\App\Models\User::CAMPUSES as $campusOption)
-                            <option value="{{ $campusOption }}">{{ $campusOption }}</option>
+                    <select id="office-filter" class="max-w-[70vw] rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a5690]/30 focus:border-[#4a5690]">
+                        <option value="All Offices">All Offices</option>
+                        @foreach(\App\Models\User::UNIVERSITY_OFFICE_ACCOUNT_LABELS as $officeLabel)
+                            <option value="{{ $officeLabel }}">{{ $officeLabel }}</option>
                         @endforeach
+                        <option value="Other offices">Other offices</option>
                     </select>
                 </label>
             </div>
@@ -82,11 +83,6 @@
                             <p class="mt-1 text-sm text-slate-600">{{ \Illuminate\Support\Carbon::parse($event['start'])->format('D, M j, Y · g:i A') }} · {{ $event['venue'] }}</p>
                             <p class="mt-1 text-sm text-slate-500">{{ $event['campus'] }}@if($event['description']) · {{ $event['description'] }}@endif</p>
                         </div>
-                        @if($event['sdg_number'])
-                            <span class="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-800">SDG {{ $event['sdg_number'] }}</span>
-                        @else
-                            <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">Not aligned to SDG</span>
-                        @endif
                     </article>
                 @empty
                     <p class="py-5 text-sm text-slate-500">No events have been published yet.</p>
@@ -109,7 +105,7 @@
             UniEventCalendar.init({
                 calendarEl: document.getElementById('calendar'),
                 events: {!! $events->toJson() !!},
-                campusFilterEl: document.getElementById('campus-filter'),
+                officeFilterEl: document.getElementById('office-filter'),
                 listEl: document.getElementById('event-list'),
                 listLabelEl: document.getElementById('selected-date-label')
             });

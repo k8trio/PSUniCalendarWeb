@@ -152,7 +152,6 @@
                         <th>Event</th>
                         <th>Campus</th>
                         <th>Scope</th>
-                        <th>Category</th>
                         <th>Date</th>
                         <th>Organizer</th>
                         <th>Submitted</th>
@@ -169,7 +168,6 @@
                             <td><span class="od-table__title">{{ $item->title }}</span><span class="po-sub">{{ $item->venue_name }}</span></td>
                             <td>{{ $dash::campusLabel($item) }}</td>
                             <td><span class="po-scope po-scope--{{ strtolower($item->scope()) }}">{{ $dash::scopeLabel($item->scope()) }}</span></td>
-                            <td>{{ $item->sdg_number ? 'SDG ' . $item->sdg_number : '—' }}</td>
                             <td>{{ $item->start_datetime->format('M j, Y') }}<span class="po-sub">{{ $item->start_datetime->format('g:i A') }} – {{ $item->end_datetime->format('g:i A') }}</span></td>
                             <td>{{ $item->name }}</td>
                             <td>{{ $item->created_at?->format('M j, Y') }}</td>
@@ -192,7 +190,7 @@
                         </tr>
                     @endforeach
                     <tr data-empty class="{{ $queue->isEmpty() ? '' : 'hidden' }}">
-                        <td colspan="9" class="od-table__empty">{{ $queue->isEmpty() ? 'No submissions are awaiting review.' : 'No submissions match your search.' }}</td>
+                        <td colspan="8" class="od-table__empty">{{ $queue->isEmpty() ? 'No submissions are awaiting review.' : 'No submissions match your search.' }}</td>
                     </tr>
                 </tbody>
             </table>
@@ -408,6 +406,10 @@
             var charts = @json($charts);
             var seriesColors = ['#4a5690', '#e0a800', '#14b8a6', '#047857', '#8d98d4'];
             var countTicks = { beginAtZero: true, ticks: { precision: 0 } };
+            function officeAcronym(name) {
+                var match = name.match(/\(([^)]+)\)$/);
+                return match ? match[1] : name;
+            }
             Chart.defaults.font.family = "'Inter', system-ui, sans-serif";
             Chart.defaults.color = '#64698a';
 
@@ -449,7 +451,7 @@
                     labels: charts.trends.labels,
                     datasets: Object.keys(charts.trends.series).map(function (name, i) {
                         var c = seriesColors[i % seriesColors.length];
-                        return { label: name, data: charts.trends.series[name], borderColor: c, backgroundColor: c, tension: .3, pointRadius: 3 };
+                        return { label: officeAcronym(name), data: charts.trends.series[name], borderColor: c, backgroundColor: c, tension: .3, pointRadius: 3 };
                     })
                 },
                 options: { maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 10 } } }, scales: { y: countTicks } }
@@ -457,7 +459,7 @@
 
             new Chart(document.getElementById('chart-conflicts'), {
                 type: 'bar',
-                data: { labels: charts.conflicts.labels, datasets: [{ label: 'Open conflicts', data: charts.conflicts.values, backgroundColor: '#be123c', borderRadius: 8 }] },
+                data: { labels: charts.conflicts.labels.map(officeAcronym), datasets: [{ label: 'Open conflicts', data: charts.conflicts.values, backgroundColor: '#be123c', borderRadius: 8 }] },
                 options: { maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: countTicks } }
             });
         });

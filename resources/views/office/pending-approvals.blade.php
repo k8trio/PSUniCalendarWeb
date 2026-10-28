@@ -23,11 +23,6 @@
                         </div>
                         <p class="po-review__meta">{{ $request->name }} · {{ $request->email }} · {{ $request->campus ?? 'Campus not specified' }}</p>
                     </div>
-                    @if($request->sdg_number)
-                        <span class="od-pill">SDG {{ $request->sdg_number }}</span>
-                    @else
-                        <span class="od-pill">Not aligned to SDG</span>
-                    @endif
                 </div>
 
                 <div class="po-review__body">
@@ -89,15 +84,6 @@
                         <label class="od-field">
                             <span class="od-label">End</span>
                             <input type="datetime-local" name="end_datetime" value="{{ $request->end_datetime->format('Y-m-d\\TH:i') }}" required class="od-input od-input--sm">
-                        </label>
-                        <label class="od-field po-span">
-                            <span class="od-label">SDG alignment</span>
-                            <select name="sdg_number" class="od-input od-input--sm">
-                                <option value="">Not aligned to an SDG</option>
-                                @foreach(['No Poverty', 'Zero Hunger', 'Good Health and Well-being', 'Quality Education', 'Gender Equality', 'Clean Water and Sanitation', 'Affordable and Clean Energy', 'Decent Work and Economic Growth', 'Industry, Innovation and Infrastructure', 'Reduced Inequalities', 'Sustainable Cities and Communities', 'Responsible Consumption and Production', 'Climate Action', 'Life Below Water', 'Life on Land', 'Peace, Justice and Strong Institutions', 'Partnerships for the Goals'] as $index => $sdg)
-                                    <option value="{{ $index + 1 }}" {{ (string) $request->sdg_number === (string) ($index + 1) ? 'selected' : '' }}>SDG {{ $index + 1 }}: {{ $sdg }}</option>
-                                @endforeach
-                            </select>
                         </label>
                         <label class="od-field po-span">
                             <span class="od-label">Planning note</span>
