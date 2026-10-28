@@ -57,6 +57,7 @@
                         <input id="email" name="email" type="email" inputmode="email" value="{{ old('email') }}" required autofocus autocomplete="username" autocapitalize="off" spellcheck="false" placeholder="office@psu.edu.ph" @error('email') aria-invalid="true" @enderror>
                     </div>
                 </div>
+
                 <div class="field">
                     <label for="password">Password</label>
                     <div class="control">
@@ -67,8 +68,16 @@
                         </button>
                     </div>
                 </div>
+
                 <label class="remember"><input type="checkbox" name="remember" value="1" @checked(old('remember'))> Keep me signed in on this device</label>
                 <button type="submit" class="btn" id="submit-btn"><span>Sign in</span></button>
+
+                @if ($otherText && $otherLabel && $otherUrl)
+                    <p class="auth-switch">
+                        {{ $otherText }}
+                        <a href="{{ $otherUrl }}">{{ $otherLabel }}</a>
+                    </p>
+                @endif
             </form>
         </div>
     </section>
@@ -76,15 +85,30 @@
 <script>
 (() => {
     const pw = document.getElementById('password'), t = document.getElementById('toggle-pw');
-    t.addEventListener('click', () => {
-        const show = pw.type === 'password';
-        pw.type = show ? 'text' : 'password';
-        t.setAttribute('aria-pressed', show);
-        t.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
-    });
+    if (pw && t) {
+        t.addEventListener('click', () => {
+            const show = pw.type === 'password';
+            pw.type = show ? 'text' : 'password';
+            t.setAttribute('aria-pressed', show);
+            t.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+        });
+    }
+
     const f = document.getElementById('login-form'), b = document.getElementById('submit-btn');
-    f.addEventListener('submit', () => { b.disabled = true; b.classList.add('is-loading'); b.setAttribute('aria-busy', 'true'); });
-    addEventListener('pageshow', e => { if (e.persisted) { b.disabled = false; b.classList.remove('is-loading'); b.removeAttribute('aria-busy'); } });
+    if (f && b) {
+        f.addEventListener('submit', () => {
+            b.disabled = true;
+            b.classList.add('is-loading');
+            b.setAttribute('aria-busy', 'true');
+        });
+        addEventListener('pageshow', e => {
+            if (e.persisted) {
+                b.disabled = false;
+                b.classList.remove('is-loading');
+                b.removeAttribute('aria-busy');
+            }
+        });
+    }
 })();
 </script>
 </body>

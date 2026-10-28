@@ -22,7 +22,6 @@ Route::middleware(['auth', 'role:office'])->prefix('office')->group(function () 
     Route::get('/add-event', [OfficeController::class, 'addEvent'])->name('office.add-event');
     Route::get('/request-status', [OfficeController::class, 'requestStatus'])->name('office.request-status');
     Route::get('/recent-activity', [OfficeController::class, 'recentActivity'])->name('office.recent-activity');
-    Route::get('/recent-activity', [OfficeController::class, 'recentActivity'])->name('office.recent-activity');
     Route::get('/calendar', [OfficeController::class, 'calendar'])->name('office.calendar');
     Route::get('/events/{event}/documents/{documentIndex}', [OfficeController::class, 'eventDocument'])->whereNumber('documentIndex')->name('office.events.documents.show');
     Route::post('/request-venue', [OfficeController::class, 'requestVenue'])->name('office.request');
@@ -32,7 +31,6 @@ Route::middleware(['auth', 'role:office'])->prefix('office')->group(function () 
     Route::get('/requests/{id}/duplicate', [OfficeController::class, 'duplicateRequest'])->name('office.requests.duplicate');
     Route::get('/requests/{id}/edit', [OfficeController::class, 'editRequestForm'])->name('office.requests.edit');
     Route::post('/requests/{id}/cancel', [OfficeController::class, 'cancelRequest'])->name('office.requests.cancel');
-    Route::delete('/requests/{id}', [OfficeController::class, 'deleteCancelledRequest'])->name('office.requests.delete');
     Route::delete('/requests/{id}', [OfficeController::class, 'deleteCancelledRequest'])->name('office.requests.delete');
     Route::post('/favorite-venues', [OfficeController::class, 'toggleFavoriteVenue'])->name('office.favorite-venues.toggle');
 
@@ -82,7 +80,10 @@ Route::middleware(['auth', 'role:planning_office'])->prefix('planning-office')->
 Route::get('/events/{event}/documents/{documentIndex}', [UserController::class, 'eventDocument'])
     ->whereNumber('documentIndex')
     ->name('user.events.documents.show');
-Route::get('/', [UserController::class, 'index'])->name('user.calendar');
+
+// Home page: the new PSU landing page is the first thing visitors see at "/".
+// (The old public calendar was UserController@index; the route name is kept so existing links still work.)
+Route::view('/', 'landing')->name('user.calendar');
 
 Route::domain('superadmin.unicalendar.test')->group(function () {
     Route::redirect('/', '/planning-office');
