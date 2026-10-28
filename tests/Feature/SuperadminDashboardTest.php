@@ -19,7 +19,7 @@ test('planning office dashboard renders for authenticated office users', functio
         ->assertSee('Analytics');
 });
 
-test('planning office dashboard keeps the live master calendar visible', function () {
+test('planning office dashboard keeps the live calendar visible without an extra title card', function () {
     $user = User::factory()->create([
         'email' => 'planning-office-no-calendar@example.com',
         'role' => 'planning_office',
@@ -28,7 +28,8 @@ test('planning office dashboard keeps the live master calendar visible', functio
     $response = $this->actingAs($user)->get('/planning-office');
 
     $response->assertStatus(200);
-    $response->assertSee('Master Live Calendar');
+    $response->assertSee('planning-office-calendar', false);
+    $response->assertDontSee('Master Live Calendar');
     $this->get('/superadmin/calendar')->assertNotFound();
 });
 

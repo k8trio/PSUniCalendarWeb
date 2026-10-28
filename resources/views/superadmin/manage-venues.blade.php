@@ -2,7 +2,7 @@
 
 @section('title', 'Venue Management')
 @section('subheading', 'Review and manage the venues available for event.')
-
+ 
 @section('content')
         @if($errors->any())
             <div class="od-alert od-alert--error">{{ $errors->first() }}</div>

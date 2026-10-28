@@ -250,13 +250,10 @@
     </section>
 
     {{-- ===== Centralized calendar ===== --}}
-    <section id="calendar" class="od-card">
-        <div class="od-card__head">
-            <div>
-                <h2 class="od-card__title">Master Live Calendar</h2>
-            </div>
+    <section id="calendar">
+        <div id="planning-office-calendar" class="od-calendar">
+            @include('partials.calendar-masthead')
         </div>
-        <div id="planning-office-calendar" class="od-calendar"></div>
     </section>
 
     <div class="od-two-col">

@@ -359,3 +359,257 @@
 
 @media (max-width: 480px) {
     .ec-details { grid-template-columns: minmax(0, 1fr); }}
+
+/* ---------- Public PSU calendar branding ---------- */
+
+.psu-calendar-page {
+    background:
+        radial-gradient(ellipse at 50% 0, rgba(230, 233, 245, .8), transparent 38rem),
+        #f3f4fa;
+    color: var(--ec-text);
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+.psu-calendar-shell { width: 100%; }
+
+.psu-masthead {
+    position: relative;
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr) 44px;
+    align-items: center;
+    min-height: 164px;
+    padding: 18px 22px 22px;
+    overflow: hidden;
+    border: 1px solid #dfe3f0;
+    border-radius: 16px;
+    background: linear-gradient(145deg, #fff 10%, #f5f6fb 100%);
+    box-shadow: 0 8px 26px rgba(31, 39, 87, .07);
+}
+
+.psu-masthead--calendar { margin-bottom: 16px; }
+
+.psu-masthead::before {
+    position: absolute;
+    top: -90px;
+    right: -55px;
+    width: 230px;
+    height: 230px;
+    border: 1px solid rgba(74, 86, 144, .08);
+    border-radius: 50%;
+    box-shadow: 0 0 0 18px rgba(74, 86, 144, .025), 0 0 0 38px rgba(74, 86, 144, .02);
+    content: "";
+    pointer-events: none;
+}
+
+.psu-masthead::after {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    height: 4px;
+    background: linear-gradient(90deg, var(--ec-navy-800), var(--ec-gold-500), var(--ec-navy-800));
+    content: "";
+}
+
+.psu-masthead__menu {
+    z-index: 1;
+    align-self: start;
+    border-color: #dce0ed;
+    color: var(--ec-navy-800);
+}
+
+.psu-masthead__menu:hover { background: var(--ec-navy-50); }
+
+.psu-masthead__brand {
+    z-index: 1;
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+}
+
+.psu-masthead__seal {
+    width: 72px;
+    height: 72px;
+    object-fit: contain;
+    filter: drop-shadow(0 3px 4px rgba(31, 39, 87, .14));
+}
+
+.psu-masthead__name {
+    margin: 5px 0 0;
+    color: var(--ec-navy-900);
+    font-family: 'UnifrakturCook', Georgia, serif;
+    font-size: clamp(22px, 4vw, 36px);
+    font-weight: 700;
+    line-height: 1.15;
+}
+
+.psu-masthead__tagline {
+    margin: 6px 0 0;
+    color: var(--ec-muted);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .2em;
+    text-transform: uppercase;
+}
+
+.psu-calendar-card {
+    overflow: hidden;
+    border-color: #dfe3ef;
+    border-radius: 14px;
+    box-shadow: 0 5px 18px rgba(31, 39, 87, .055);
+}
+
+.psu-calendar-card--featured {
+    background: linear-gradient(180deg, #f9f9fc 0%, #ffffff 24%);
+}
+
+.psu-calendar-branding {
+    position: relative;
+    display: grid;
+    grid-template-columns: 54px minmax(0, 1fr) 54px;
+    align-items: center;
+    min-height: 170px;
+    padding: 18px 22px 8px;
+    overflow: hidden;
+    background: linear-gradient(180deg, rgba(255,255,255,.92), rgba(245,247,253,.92));
+}
+
+.fc.ec-calendar > .psu-calendar-branding { border-radius: 9px 9px 0 0; }
+
+.psu-calendar-branding::after {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 2;
+    height: 4px;
+    background: linear-gradient(90deg, var(--ec-navy-800), var(--ec-gold-500), var(--ec-navy-800));
+    content: "";
+    pointer-events: none;
+}
+
+.psu-calendar-branding::before {
+    position: absolute;
+    top: -90px;
+    right: -55px;
+    width: 230px;
+    height: 230px;
+    border: 1px solid rgba(74, 86, 144, .08);
+    border-radius: 50%;
+    box-shadow: 0 0 0 18px rgba(74, 86, 144, .025), 0 0 0 38px rgba(74, 86, 144, .02);
+    content: "";
+    pointer-events: none;
+}
+
+.psu-calendar-branding__menu {
+    position: relative;
+    z-index: 1;
+    align-self: flex-start;
+    border-color: #dce0ed;
+    color: var(--ec-navy-800);
+}
+
+.psu-calendar-branding__center {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+}
+
+.psu-calendar-branding__seal {
+    width: 70px;
+    height: 70px;
+    object-fit: contain;
+    filter: drop-shadow(0 3px 4px rgba(31, 39, 87, .14));
+}
+
+.psu-calendar-branding__text {
+    margin-top: 8px;
+}
+
+.psu-calendar-branding__name {
+    margin: 0;
+    color: var(--ec-navy-900);
+    font-family: 'UnifrakturCook', Georgia, serif;
+    font-size: clamp(24px, 4vw, 40px);
+    font-weight: 700;
+    line-height: 1.1;
+}
+
+.psu-calendar-branding__tagline {
+    margin: 8px 0 0;
+    color: var(--ec-muted);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+}
+
+.psu-calendar-branding__spacer {
+    display: block;
+    width: 100%;
+    height: 1px;
+}
+
+.psu-calendar-card__head {
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--ec-border);
+}
+
+.psu-section-eyebrow {
+    margin: 0 0 3px;
+    color: var(--ec-navy-600);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+}
+
+.psu-approved-badge {
+    flex: none;
+    border: 1px solid #dfe3f1;
+    background: var(--ec-navy-50);
+    color: var(--ec-navy-700);
+}
+
+.psu-calendar-controls select {
+    border-color: #d5d9e8;
+    color: var(--ec-text);
+}
+
+.psu-calendar-controls select:focus { border-color: var(--ec-navy-600); }
+
+@media (max-width: 480px) {
+    .psu-masthead {
+        grid-template-columns: 38px minmax(0, 1fr) 38px;
+        min-height: 148px;
+        padding: 14px 12px 18px;
+    }
+
+    .psu-masthead__menu {
+        width: 38px;
+        height: 38px;
+    }
+
+    .psu-calendar-branding {
+        grid-template-columns: 42px minmax(0, 1fr) 42px;
+        min-height: 126px;
+        padding: 12px 12px 6px;
+    }
+
+    .psu-calendar-branding__seal { width: 56px; height: 56px; }
+    .psu-calendar-branding__name { font-size: clamp(20px, 5.5vw, 28px); }
+    .psu-calendar-branding__tagline { font-size: 9px; letter-spacing: .12em; }
+    .psu-masthead__seal { width: 60px; height: 60px; }
+    .psu-masthead__name { font-size: clamp(19px, 5.3vw, 25px); }
+    .psu-masthead__tagline { font-size: 9px; letter-spacing: .15em; }
+    .psu-approved-badge { margin-top: 2px; padding: 5px 8px; font-size: 10px; }
+    .psu-calendar-controls { justify-content: flex-start; }
+    .psu-calendar-controls label { width: 100%; align-items: flex-start; flex-direction: column; }
+    .psu-calendar-controls select { width: 100%; max-width: none; }
+}

@@ -25,7 +25,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Office Dashboard - UniCalendar</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=UnifrakturCook:wght@700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.css" rel="stylesheet">
     <link href="{{ asset('css/event-calendar.css') }}" rel="stylesheet">
     <link href="{{ asset('css/office-dashboard.css') }}" rel="stylesheet">
@@ -221,7 +221,7 @@
 
             <!-- ===== Tab: Calendar ===== -->
             <div id="calendar-panel" class="od-calendar-layout">
-                <section class="od-card">
+                <section class="od-card od-calendar-card">
                     <div class="od-card__head">
                         <h2 class="od-card__title">Calendar</h2>
                         <span class="od-pill">Approved events</span>
@@ -238,7 +238,9 @@
                             </select>
                         </label>
                     </div>
-                    <div id="admin-calendar" class="od-calendar"></div>
+                    <div id="admin-calendar" class="od-calendar">
+                        @include('partials.calendar-masthead')
+                    </div>
                 </section>
             </div>
 

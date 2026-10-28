@@ -284,6 +284,8 @@
 
         // PSU theme (blue / gold / white) from event-calendar.css, same on every page
         opts.calendarEl.classList.add('ec-calendar');
+        var brandingEl = opts.calendarEl.querySelector('[data-calendar-branding]');
+        if (brandingEl) brandingEl.remove();
 
         calendar = new FullCalendar.Calendar(opts.calendarEl, Object.assign({
             timeZone: TZ,
@@ -346,6 +348,8 @@
         }
 
         calendar.render();
+        var toolbar = opts.calendarEl.querySelector('.fc-header-toolbar');
+        if (brandingEl && toolbar) toolbar.parentNode.insertBefore(brandingEl, toolbar);
         renderPrompt();
 
         window.addEventListener('resize', function () {

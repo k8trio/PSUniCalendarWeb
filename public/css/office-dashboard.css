@@ -710,6 +710,20 @@ textarea.od-input { resize: vertical; }
 .od-calendar-toolbar label { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: #3b3f5c; }
 .od-calendar { min-height: 500px; }
 
+.od-card.od-calendar-card {
+    overflow: hidden;
+    padding: 0;
+}
+.od-calendar-card > .psu-masthead {
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+}
+.od-calendar-card > .od-card__head { margin: 0; padding: 20px 24px 16px; }
+.od-calendar-card > .od-calendar-toolbar { margin: 0; padding: 0 24px 16px; }
+.od-calendar-card > .od-calendar { padding: 0 24px 24px; }
+
 /* The calendar grid itself is themed in event-calendar.css (.ec-calendar), shared by every page. */
 
 
@@ -918,6 +932,10 @@ textarea.od-input { resize: vertical; }
     .od-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .od-form-grid, .od-profile-grid { grid-template-columns: minmax(0, 1fr); }
     .od-card { padding: 18px 16px; }
+    .od-card.od-calendar-card { padding: 0; }
+    .od-calendar-card > .od-card__head { padding: 16px 16px 12px; }
+    .od-calendar-card > .od-calendar-toolbar { padding: 0 16px 12px; }
+    .od-calendar-card > .od-calendar { padding: 0 16px 16px; }
     .od-dropdown { width: min(320px, calc(100vw - 32px)); }
 }
 
