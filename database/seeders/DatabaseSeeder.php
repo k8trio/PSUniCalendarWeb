@@ -12,9 +12,6 @@ class DatabaseSeeder extends Seeder
 {
     use WithoutModelEvents;
 
-    /**
-     * Seed the application's database.
-     */
     public function run(): void
     {
         $user = User::firstOrCreate(
@@ -36,7 +33,6 @@ class DatabaseSeeder extends Seeder
             'remember_token' => Str::random(10),
         ])->save();
 
-        // University offices and campus offices. All use the password Office@123.
         $officeAccounts = [
             ['email' => 'op@psu.local', 'name' => 'Office of the President (OP)', 'campus' => 'University Offices'],
             ['email' => 'ovpaass@psu.local', 'name' => 'Office of the Vice President for Academic Affairs and Student Services (OVPAASS)', 'campus' => 'University Offices'],
@@ -71,7 +67,6 @@ class DatabaseSeeder extends Seeder
             ])->save();
         }
 
-        // Seed demo events for dashboard analytics and live calendar
         $this->call([
             DemoOfficeEventsSeeder::class,
         ]);
