@@ -1,0 +1,66 @@
+/* PSU staff login (University Offices + Planning Office). Plain CSS: no Tailwind CDN, no build step. */
+:root{--blue:#0927D8;--blue-dark:#0719a6;--navy:#050f6b;--gold:#FFDA27;--ink:#0f172a;--muted:#64748b;--line:#d5dae6;--panel:#f4f6fb}
+*,*::before,*::after{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;min-height:100vh;display:grid;place-items:center;padding:clamp(12px,3vw,40px);font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--ink);background:radial-gradient(1200px 500px at 20% -10%,#dfe4ff,transparent),#eef1f8}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+.login{position:relative;display:flex;width:100%;max-width:1080px;min-height:600px;background:var(--panel);border-radius:20px;overflow:hidden;box-shadow:0 30px 60px -20px rgba(9,39,216,.35),0 0 0 1px rgba(9,39,216,.08)}
+
+/* Left: campus photo under a royal-blue wash, cut on a diagonal */
+.hero{position:absolute;inset:0 auto 0 0;width:58%;color:#fff;background:linear-gradient(135deg,var(--blue),var(--navy));clip-path:polygon(0 0,100% 0,72% 100%,0 100%)}
+.hero::before{content:"";position:absolute;inset:0;background:var(--hero,none) center/cover no-repeat}
+.hero::after{content:"";position:absolute;inset:0;background:linear-gradient(160deg,rgba(9,39,216,.80),rgba(5,15,107,.90))}
+.hero__copy{position:relative;z-index:1;height:100%;max-width:390px;padding:56px;display:flex;flex-direction:column;justify-content:center}
+.eyebrow{margin:0 0 1rem;display:flex;align-items:center;gap:.6rem;font-size:.75rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--gold)}
+.eyebrow::before{content:"";width:28px;height:3px;border-radius:2px;background:var(--gold)}
+.hero__title{margin:0;font-size:clamp(1.6rem,2.6vw,2.1rem);line-height:1.2;font-weight:700;letter-spacing:-.01em}
+.hero__blurb{margin:1rem 0 0;font-size:.95rem;line-height:1.6;color:rgba(255,255,255,.85)}
+.points{margin:1.5rem 0 0;padding:0;list-style:none;display:grid;gap:.7rem;font-size:.88rem}
+.points li{display:flex;gap:.65rem;align-items:flex-start;color:rgba(255,255,255,.92)}
+.points li::before{content:"✓";flex:none;width:20px;height:20px;border-radius:50%;display:grid;place-items:center;font-size:.7rem;font-weight:700;color:var(--navy);background:var(--gold)}
+
+/* Right: form */
+.panel{position:relative;z-index:1;margin-left:auto;width:46%;display:flex;align-items:center;justify-content:center;padding:48px 48px 40px 64px}
+.panel__inner{width:100%;max-width:380px}
+.seal{display:block;width:96px;height:96px;margin:0 auto;object-fit:contain}
+.brand{margin:.8rem 0 .6rem;text-align:center;font-family:"UnifrakturCook","Old English Text MT","Pirata One",Georgia,serif;font-size:1.9rem;line-height:1.1;color:#0b0b0b}
+.badge{display:table;margin:0 auto 1.6rem;padding:.3rem .85rem;border-radius:999px;background:var(--gold);color:#3a2f00;font-size:.7rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase}
+
+.alert{display:flex;gap:.55rem;margin-bottom:1rem;padding:.7rem .9rem;border:1px solid #fecdd3;border-radius:10px;background:#fff1f2;color:#9f1239;font-size:.85rem;line-height:1.4}
+.alert svg{flex:none;margin-top:1px}
+.field{margin-bottom:1rem}
+.field label{display:block;margin-bottom:.35rem;font-size:.8rem;font-weight:600;color:#334155}
+.control{position:relative}
+.control .icon{position:absolute;left:.9rem;top:50%;transform:translateY(-50%);color:#94a3b8;pointer-events:none}
+.control input{width:100%;height:46px;padding:0 44px 0 42px;border:1px solid var(--line);border-radius:10px;background:#fff;font:inherit;font-size:.95rem;color:var(--ink);transition:border-color .15s,box-shadow .15s}
+.control input:focus{outline:0;border-color:var(--blue);box-shadow:0 0 0 4px rgba(9,39,216,.14)}
+.control input[aria-invalid="true"]{border-color:#e11d48}
+.toggle{position:absolute;right:.35rem;top:50%;transform:translateY(-50%);width:36px;height:36px;display:grid;place-items:center;border:0;border-radius:8px;background:none;color:var(--muted);cursor:pointer}
+.toggle:hover{color:var(--blue);background:#eef1ff}
+.toggle:focus-visible{outline:2px solid var(--blue)}
+.remember{display:inline-flex;align-items:center;gap:.5rem;margin:.1rem 0 1.25rem;font-size:.85rem;color:#475569;cursor:pointer}
+.remember input{width:16px;height:16px;accent-color:var(--blue)}
+
+.btn{width:100%;height:48px;display:flex;align-items:center;justify-content:center;gap:.6rem;border:0;border-radius:10px;background:var(--blue);color:#fff;font:inherit;font-weight:600;cursor:pointer;box-shadow:0 10px 20px -10px rgba(9,39,216,.8);transition:background .15s,transform .15s}
+.btn:hover{background:var(--blue-dark);transform:translateY(-1px)}
+.btn:focus-visible{outline:0;box-shadow:0 0 0 4px rgba(255,218,39,.75)}
+.btn:disabled{cursor:progress;transform:none;opacity:.9}
+.btn.is-loading::after{content:"";width:16px;height:16px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.switch{margin:1.4rem 0 0;text-align:center;font-size:.85rem;color:var(--muted)}
+.switch a{color:var(--blue);font-weight:600;text-decoration:none}
+.switch a:hover{text-decoration:underline}
+.legal{margin:1.2rem 0 0;text-align:center;font-size:.72rem;color:#94a3b8}
+
+@media (max-width:820px){
+  .login{flex-direction:column;min-height:0}
+  .hero{position:relative;width:100%;clip-path:polygon(0 0,100% 0,100% 90%,0 100%)}
+  .hero__copy{max-width:none;padding:28px 24px 44px}
+  .points{display:none}
+  .panel{width:100%;padding:24px 24px 32px}
+  .seal{width:76px;height:76px}
+  .brand{font-size:1.6rem}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation-duration:.01ms!important}}

@@ -2,14 +2,20 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\ThrottlesStaffLogin;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\RateLimiter;
 
 class OfficeAuthController extends Controller
 {
+    use ThrottlesStaffLogin;
+
+    private const ROLE = 'office';
+
     public function showLogin()
     {
-        if (Auth::check() && Auth::user()->role === 'office') {
+        if (Auth::check() && Auth::user()->role === self::ROLE) {
             return redirect()->route('office.dashboard');
         }
 
@@ -23,28 +29,37 @@ class OfficeAuthController extends Controller
             'password' => ['required'],
         ]);
 
-        if (Auth::attempt($credentials, $request->boolean('remember'))) {
-            $request->session()->regenerate();
+        $this->ensureNotRateLimited($request);
+        $key = $this->throttleKey($request);
 
-            if (Auth::user()->role !== 'office') {
-                Auth::logout();
-                return back()->withErrors([
-                    'email' => 'You do not have permission to sign in as an office user.',
-                ])->onlyInput('email');
-            }
+        if (! Auth::attempt($credentials, $request->boolean('remember'))) {
+            RateLimiter::hit($key, 60);
 
-            return redirect()->intended(route('office.dashboard'));
+            return back()->withErrors([
+                'email' => 'The provided credentials do not match our records.',
+            ])->onlyInput('email', 'remember');
         }
 
-        return back()->withErrors([
-            'email' => 'The provided credentials do not match our records.',
-        ])->onlyInput('email');
+        if (Auth::user()->role !== self::ROLE) {
+            Auth::logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+            RateLimiter::hit($key, 60);
+
+            return back()->withErrors([
+                'email' => 'You do not have permission to sign in as a University Office user.',
+            ])->onlyInput('email');
+        }
+
+        RateLimiter::clear($key);
+        $request->session()->regenerate();
+
+        return redirect()->intended(route('office.dashboard'));
     }
 
     public function logout(Request $request)
     {
         Auth::logout();
-
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
