@@ -17,11 +17,11 @@
             Chart.defaults.font.family = "'Inter', system-ui, sans-serif";
             Chart.defaults.color = '#64698a';
 
-            new Chart(document.getElementById('archive-campus-chart'), {
+            new Chart(document.getElementById('archive-office-chart'), {
                 type: 'bar',
                 data: {
-                    labels: Object.keys(analytics.campuses),
-                    datasets: [{ label: 'Events', data: Object.values(analytics.campuses), backgroundColor: Object.keys(analytics.campuses).map(function (_, index) { return seriesColors[index % seriesColors.length]; }), borderRadius: 8 }]
+                    labels: Object.keys(analytics.offices),
+                    datasets: [{ label: 'Approved events', data: Object.values(analytics.offices), backgroundColor: Object.keys(analytics.offices).map(function (_, index) { return seriesColors[index % seriesColors.length]; }), borderRadius: 8 }]
                 },
                 options: {
                     indexAxis: 'y',
@@ -104,8 +104,8 @@
         </div>
         <section class="po-charts" aria-label="Approved event analytics charts">
             <figure class="po-chart-card po-chart-card--office">
-                <figcaption>Approved events by campus</figcaption>
-                <div class="po-chart po-chart--office"><canvas id="archive-campus-chart" aria-label="Approved events by campus"></canvas></div>
+                <figcaption>Approved events by office</figcaption>
+                <div class="po-chart po-chart--office"><canvas id="archive-office-chart" aria-label="Approved events by office"></canvas></div>
             </figure>
             <figure class="po-chart-card">
                 <figcaption>Approved event trends <span>· monthly</span></figcaption>
