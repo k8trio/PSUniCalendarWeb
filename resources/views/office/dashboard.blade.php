@@ -228,12 +228,13 @@
                     </div>
                     <div class="od-calendar-toolbar">
                         <label>
-                            <span>Campus:</span>
-                            <select id="campus-filter" class="od-input od-input--sm" style="width:auto">
-                                <option value="All Campus">All Campus</option>
-                                @foreach($calendarCampuses as $campusOption)
-                                    <option value="{{ $campusOption }}">{{ $campusOption }}</option>
+                            <span>Office:</span>
+                            <select id="office-filter" class="od-input od-input--sm" style="width:auto; max-width:min(70vw, 32rem)">
+                                <option value="All Offices">All Offices</option>
+                                @foreach(\App\Models\User::UNIVERSITY_OFFICE_ACCOUNT_LABELS as $officeLabel)
+                                    <option value="{{ $officeLabel }}">{{ $officeLabel }}</option>
                                 @endforeach
+                                <option value="Other offices">Other offices</option>
                             </select>
                         </label>
                     </div>
@@ -813,7 +814,7 @@
                 calendar = UniEventCalendar.init({
                     calendarEl: calendarElement,
                     events: {!! isset($events) ? $events->toJson() : '[]' !!},
-                    campusFilterEl: document.getElementById('campus-filter')
+                    officeFilterEl: document.getElementById('office-filter')
                 });
             }
 

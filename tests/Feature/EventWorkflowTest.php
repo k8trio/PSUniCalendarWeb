@@ -3,8 +3,13 @@
 use App\Models\EventRequest;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Schema;
 
 uses(RefreshDatabase::class);
+
+test('event requests no longer include the SDG field', function () {
+    expect(Schema::hasColumn('event_requests', 'sdg_number'))->toBeFalse();
+});
 
 test('office add event page presents the event form as a standalone page', function () {
     $office = User::factory()->create(['role' => 'office']);
@@ -112,7 +117,6 @@ test('office request rejects an overlapping venue and time', function () {
         'event_for' => 'Office of the University President; All Vice Presidents; Executive Director, School of Advanced Studies; Executive Director, Open University System; All Campus Executive Directors',
         'attention_to' => 'Office of Student Affairs',
         'campus' => 'Lingayen Campus',
-        'sdg_number' => 4,
         'start_datetime' => $start->format('Y-m-d\\TH:i'),
         'end_datetime' => $start->copy()->addHour()->format('Y-m-d\\TH:i'),
         'description' => 'An education event',
@@ -223,7 +227,6 @@ test('public calendar lists only approved events and exposes no editing controls
         'title' => 'Public seminar',
         'venue_name' => 'Science Hall',
         'campus' => 'Alaminos Campus',
-        'sdg_number' => 13,
         'start_datetime' => now()->addDay(),
         'end_datetime' => now()->addDay()->addHour(),
         'status' => 'approved',
@@ -242,7 +245,7 @@ test('public calendar lists only approved events and exposes no editing controls
     $this->get('/')
         ->assertOk()
         ->assertSee('Public seminar')
-        ->assertSee('SDG 13')
+        ->assertDontSee('SDG')
         ->assertDontSee('Unpublished request')
         ->assertDontSee('Submit Event Request');
 });

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\EventRequest;
+use App\Models\User;
 
 class UserController extends Controller
 {
@@ -22,8 +23,8 @@ class UserController extends Controller
                     'venue' => $event->venue_name,
                     'campus' => $campus,
                     'university_wide' => (bool) $event->is_university_wide,
-                    'sdg_number' => $event->sdg_number,
                     'office' => $event->name,
+                    'office_filter' => User::UNIVERSITY_OFFICE_ACCOUNT_LABELS[$event->email] ?? 'Other offices',
                 ];
             });
 

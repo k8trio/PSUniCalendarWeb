@@ -121,7 +121,11 @@ test('dashboard groups event totals by submitting university office', function (
         ->assertSee('Alaminos Request')
         ->assertSee('Campus-specific')
         ->assertSee('Events by office')
-        ->assertDontSee('Events by category (SDG)');
+        ->assertDontSee('SDG');
+
+    $response->assertSee('function officeAcronym(name)')
+        ->assertSee('label: officeAcronym(name)')
+        ->assertSee('charts.conflicts.labels.map(officeAcronym)');
 
     expect($response->viewData('charts'))->not->toHaveKey('byCategory');
 

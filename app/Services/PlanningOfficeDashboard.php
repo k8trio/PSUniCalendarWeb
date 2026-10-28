@@ -22,14 +22,6 @@ class PlanningOfficeDashboard
     /** Event-related activity shown in "Recent activity" (not profile/password changes). */
     private const ACTIVITY_ACTIONS = ['submitted', 'edited', 'cancelled', 'approved', 'rejected', 'returned', 'rescheduled', 'conflict_resolved'];
 
-    private const SDG_NAMES = [
-        1 => 'No Poverty', 'Zero Hunger', 'Good Health and Well-being', 'Quality Education', 'Gender Equality',
-        'Clean Water and Sanitation', 'Affordable and Clean Energy', 'Decent Work and Economic Growth',
-        'Industry, Innovation and Infrastructure', 'Reduced Inequalities', 'Sustainable Cities and Communities',
-        'Responsible Consumption and Production', 'Climate Action', 'Life Below Water', 'Life on Land',
-        'Peace, Justice and Strong Institutions', 'Partnerships for the Goals',
-    ];
-
     public function __construct(private EventConflictChecker $conflictChecker)
     {
     }
@@ -161,11 +153,6 @@ class PlanningOfficeDashboard
         return $buckets;
     }
 
-    public static function categoryLabel(?int $sdg): string
-    {
-        return $sdg && isset(self::SDG_NAMES[$sdg]) ? "SDG {$sdg}: " . self::SDG_NAMES[$sdg] : 'Not aligned to an SDG';
-    }
-
     public static function scopeLabel(string $scope): string
     {
         return $scope === EventRequest::SCOPE_UNIVERSITY_WIDE ? 'University-wide' : 'Campus-specific';
@@ -196,7 +183,6 @@ class PlanningOfficeDashboard
                     'venue' => $e->venue_name,
                     'campus' => $e->venueCampus(),
                     'university_wide' => $universityWide,
-                    'sdg_number' => $e->sdg_number,
                     'office' => $e->name,
                     'status_label' => EventRequest::statusLabel($e->status),
                     'color' => $color,
