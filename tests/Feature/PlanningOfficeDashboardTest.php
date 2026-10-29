@@ -3,6 +3,7 @@
 use App\Models\ActivityLog;
 use App\Models\EventRequest;
 use App\Models\User;
+use Database\Seeders\DemoOfficeEventsSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
@@ -296,6 +297,115 @@ test('planning office archive lists the three most recent completed academic yea
 
     $this->get('/planning-office/archive?year=2022-2023')
         ->assertSessionHasErrors('year');
+});
+
+test('demo events populate the previous academic year archive', function () {
+    $this->seed(DemoOfficeEventsSeeder::class);
+
+    $response = $this->actingAs($this->planning)
+        ->get('/planning-office/archive?year=2025-2026')
+        ->assertOk()
+        ->assertSee('University Academic Planning Summit')
+        ->assertSee('Student Leadership Congress')
+        ->assertSee('Research and Innovation Showcase')
+        ->assertSee('Alaminos Community Engagement Day');
+
+    expect($response->viewData('analytics')['total'])->toBe(15)
+        ->and($response->viewData('analytics')['universityWide'] + $response->viewData('analytics')['campusSpecific'])->toBe(15);
+
+    expect(EventRequest::query()
+        ->where('status', 'approved')
+        ->whereBetween('start_datetime', ['2025-08-10 00:00:00', '2026-05-28 23:59:59'])
+        ->distinct()
+        ->count('email'))->toBe(8);
+
+    $this->seed(DemoOfficeEventsSeeder::class);
+    expect(EventRequest::query()
+        ->where('status', 'approved')
+        ->whereBetween('start_datetime', ['2025-08-10 00:00:00', '2026-05-28 23:59:59'])
+        ->count())->toBe(15);
+});
+
+test('demo events populate the other previous academic year archives', function () {
+    $this->seed(DemoOfficeEventsSeeder::class);
+
+    $academicYears = [
+        '2024-2025' => [
+            'University Strategic Planning Conference',
+            'Academic Excellence Recognition Day',
+            'Community Research Partnership Forum',
+            'University Staff Development Workshop',
+        ],
+        '2023-2024' => [
+            'Founding Anniversary University Convocation',
+            'Student Wellness and Sports Festival',
+            'Regional Extension and Innovation Expo',
+            'Campus Teaching and Learning Symposium',
+        ],
+    ];
+
+    foreach ($academicYears as $year => $titles) {
+        $response = $this->actingAs($this->planning)
+            ->get("/planning-office/archive?year={$year}")
+            ->assertOk();
+
+        foreach ($titles as $title) {
+            $response->assertSee($title);
+        }
+
+        expect($response->viewData('analytics')['total'])->toBe(15)
+            ->and($response->viewData('analytics')['universityWide'] + $response->viewData('analytics')['campusSpecific'])->toBe(15);
+
+        $startYear = (int) substr($year, 0, 4);
+        expect(EventRequest::query()
+            ->where('status', 'approved')
+            ->whereBetween('start_datetime', [
+                "{$startYear}-08-10 00:00:00",
+                ($startYear + 1) . '-05-28 23:59:59',
+            ])
+            ->distinct()
+            ->count('email'))->toBe(8);
+    }
+});
+
+test('planning office dashboard only reflects events from the current academic year', function () {
+    $this->travelTo(Carbon::parse('2026-10-29 12:00:00'));
+    $this->seed(DemoOfficeEventsSeeder::class);
+
+    dashboardEvent([
+        'title' => 'Current AY University Event',
+        'start_datetime' => Carbon::parse('2026-12-01 09:00:00'),
+        'is_university_wide' => true,
+        'campus' => 'University Offices',
+    ]);
+    dashboardEvent([
+        'title' => 'Current AY Campus Event',
+        'start_datetime' => Carbon::parse('2027-02-01 09:00:00'),
+        'campus' => 'Lingayen Campus',
+    ]);
+    $previousYearActivity = ActivityLog::record('planning@psu.local', 'approved', 'Previous AY activity');
+    $previousYearActivity->forceFill(['created_at' => Carbon::parse('2026-03-01 12:00:00')])->save();
+    ActivityLog::record('planning@psu.local', 'approved', 'Current AY activity');
+
+    $response = $this->actingAs($this->planning)
+        ->get('/planning-office')
+        ->assertOk()
+        ->assertDontSee('University Academic Planning Summit')
+        ->assertDontSee('Student Leadership Congress')
+        ->assertDontSee('Research and Innovation Showcase')
+        ->assertDontSee('Alaminos Community Engagement Day')
+        ->assertDontSee('Previous AY activity')
+        ->assertSee('Current AY activity');
+
+    expect($response->viewData('summary')['total'])->toBe(3)
+        ->and($response->viewData('upcoming')->pluck('title')->all())
+        ->toEqualCanonicalizing(['Campus Leadership Forum', 'Current AY University Event', 'Current AY Campus Event'])
+        ->and($response->viewData('calendarEvents')->pluck('title')->all())
+        ->toEqualCanonicalizing(['Campus Leadership Forum', 'Current AY University Event', 'Current AY Campus Event'])
+        ->and(array_sum($response->viewData('charts')['byOffice']['values']))->toBe(3)
+        ->and($response->viewData('charts')['scope']['values'])->toBe([2, 1])
+        ->and($response->viewData('charts')['trends']['labels'][0])->toBe('Aug 2026')
+        ->and($response->viewData('charts')['trends']['labels'][count($response->viewData('charts')['trends']['labels']) - 1])->toBe('Mar 2027');
 });
 
 test('office filter keeps requests submitted by that office regardless of event campus', function () {
