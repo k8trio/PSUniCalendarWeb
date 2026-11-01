@@ -55,6 +55,10 @@
                     <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" /></svg>
                     <span class="od-nav-text">Venues</span>
                 </a>
+                <a href="{{ route('planning_office.reports.events.preview') }}" class="{{ $navClass(request()->routeIs('planning_office.reports.events*')) }}">
+                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 3.75h5.379a2.25 2.25 0 011.591.659l3.371 3.371a2.25 2.25 0 01.659 1.591v10.879A2.25 2.25 0 0117 22.5H8.25A2.25 2.25 0 016 20.25V6a2.25 2.25 0 012.25-2.25z" /><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 3.75V9h5.25M9 13.5h6m-6 3.75h6" /></svg>
+                    <span class="od-nav-text">Detailed Report</span>
+                </a>
             </nav>
 
             {{-- University offices only; campus groups are omitted. --}}

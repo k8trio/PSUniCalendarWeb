@@ -121,6 +121,59 @@ test('planning office search shows one generic message when there are no results
         ->assertDontSee('<h2 class="od-card__title">Events</h2>', false);
 });
 
+test('planning office can download a detailed PDF report for all offices', function () {
+    $office = User::factory()->create([
+        'name' => 'Office of Student Affairs',
+        'email' => 'osa-report@psu.local',
+        'role' => 'office',
+    ]);
+    dashboardEvent([
+        'name' => $office->name,
+        'email' => $office->email,
+        'title' => 'Student Leadership Forum',
+        'event_for' => 'Student leaders',
+        'attention_to' => 'Campus directors',
+        'description' => 'Annual leadership forum.',
+        'digital_documents' => ['event-documents/signed-memo.pdf'],
+    ]);
+
+    $preview = $this->actingAs($this->planning)->get(route('planning_office.reports.events.preview'));
+    $preview->assertOk()
+        ->assertSee('University Event Detailed Report')
+        ->assertSee('Office of Student Affairs')
+        ->assertSee('Student Leadership Forum')
+        ->assertSee('Annual leadership forum.')
+        ->assertDontSee($office->email)
+        ->assertSee(route('planning_office.reports.events'));
+
+    $response = $this->actingAs($this->planning)->get(route('planning_office.reports.events'));
+
+    $response->assertOk()
+        ->assertHeader('content-type', 'application/pdf')
+        ->assertHeader('content-disposition', 'attachment; filename=planning-office-event-report-' . now()->format('Ymd-His') . '.pdf');
+    expect(substr($response->getContent(), 0, 5))->toBe('%PDF-');
+
+    $html = view('reports.event-requests', [
+        'reportTitle' => 'University Event Detailed Report',
+        'officeName' => null,
+        'events' => collect([dashboardEvent([
+            'name' => $office->name,
+            'email' => $office->email,
+            'title' => 'Student Leadership Forum',
+            'event_for' => 'Student leaders',
+            'attention_to' => 'Campus directors',
+            'description' => 'Annual leadership forum.',
+        ])->setAttribute('report_office_name', $office->name)]),
+        'includeOfficeColumn' => true,
+    ])->render();
+
+    expect($html)->toContain('<th>Office</th><td>Office of Student Affairs</td>')
+        ->and($html)->toContain('Student leaders')
+        ->and($html)->toContain('Campus directors')
+        ->and($html)->toContain('Annual leadership forum.')
+        ->and($html)->not->toContain($office->email);
+});
+
 test('office account details show approved events scheduled in the academic year', function () {
     $this->travelTo(Carbon::parse('2026-10-27 12:00:00'));
     $office = User::factory()->create([

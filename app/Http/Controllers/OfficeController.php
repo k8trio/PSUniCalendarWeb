@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Carbon;
 use App\Models\Venue;
@@ -616,5 +617,35 @@ class OfficeController extends Controller
         };
 
         return response()->stream($callback, 200, $headers);
+    }
+
+    public function detailedReport()
+    {
+        $office = Auth::user();
+        $events = EventRequest::where('email', $office->email)
+            ->orderByDesc('start_datetime')
+            ->get();
+
+        return view('reports.office-preview', [
+            'reportTitle' => 'Office Event Detailed Report',
+            'officeName' => $office->name,
+            'events' => $events,
+            'includeOfficeColumn' => false,
+        ]);
+    }
+
+    public function downloadDetailedReport()
+    {
+        $office = Auth::user();
+        $events = EventRequest::where('email', $office->email)
+            ->orderByDesc('start_datetime')
+            ->get();
+
+        return Pdf::loadView('reports.event-requests', [
+            'reportTitle' => 'Office Event Detailed Report',
+            'officeName' => $office->name,
+            'events' => $events,
+            'includeOfficeColumn' => false,
+        ])->setPaper('a4')->download('office-event-report-' . now()->format('Ymd-His') . '.pdf');
     }
 }

@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class PlanningOfficeController extends Controller
 {
@@ -32,6 +33,40 @@ class PlanningOfficeController extends Controller
         );
 
         return view('superadmin.dashboard', $data + ['filters' => array_filter($filters)]);
+    }
+
+    public function detailedReport()
+    {
+        return view('superadmin.reports.events', $this->detailedReportData());
+    }
+
+    public function downloadDetailedReport()
+    {
+        return Pdf::loadView('reports.event-requests', $this->detailedReportData())
+            ->setPaper('a4')
+            ->download('planning-office-event-report-' . now()->format('Ymd-His') . '.pdf');
+    }
+
+    private function detailedReportData(): array
+    {
+        $events = EventRequest::query()
+            ->orderBy('email')
+            ->orderByDesc('start_datetime')
+            ->get();
+        $officeNames = User::where('role', 'office')->pluck('name', 'email');
+        $events->each(function (EventRequest $event) use ($officeNames) {
+            $event->setAttribute(
+                'report_office_name',
+                ($officeNames[$event->email] ?? null) ?: ($event->name ?: 'Unknown office')
+            );
+        });
+
+        return [
+            'reportTitle' => 'University Event Detailed Report',
+            'officeName' => null,
+            'events' => $events,
+            'includeOfficeColumn' => true,
+        ];
     }
 
     public function archive(Request $request)

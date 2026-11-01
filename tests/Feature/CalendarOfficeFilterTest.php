@@ -163,3 +163,53 @@ test('office calendar event details include accessible advisory memo attachments
     $this->get(route('office.events.documents.show', ['event' => $hiddenEvent, 'documentIndex' => 1]))
         ->assertNotFound();
 });
+
+test('office can download a detailed PDF containing only its event requests', function () {
+    $office = User::factory()->create(['role' => 'office', 'name' => 'Office of Student Affairs']);
+    EventRequest::create([
+        'name' => 'Office of Student Affairs',
+        'email' => $office->email,
+        'title' => 'Student Leadership Forum',
+        'venue_name' => 'Main Hall',
+        'event_for' => 'Student leaders',
+        'attention_to' => 'Campus directors',
+        'campus' => 'Lingayen Campus',
+        'start_datetime' => now()->addDay(),
+        'end_datetime' => now()->addDay()->addHour(),
+        'description' => 'Annual leadership forum.',
+        'status' => 'approved',
+    ]);
+    EventRequest::create([
+        'name' => 'Another Office',
+        'email' => 'other@psu.local',
+        'title' => 'Another office event',
+        'venue_name' => 'Other Hall',
+        'campus' => 'Lingayen Campus',
+        'start_datetime' => now()->addDays(2),
+        'end_datetime' => now()->addDays(2)->addHour(),
+        'status' => 'approved',
+    ]);
+
+    $preview = $this->actingAs($office)->get(route('office.requests.report.preview'));
+    $preview->assertOk()
+        ->assertSee('Office Event Detailed Report')
+        ->assertSee('Student Leadership Forum')
+        ->assertSee('Annual leadership forum.')
+        ->assertDontSee('Another office event')
+        ->assertSee(route('office.requests.report'));
+
+    $response = $this->actingAs($office)->get(route('office.requests.report'));
+
+    $response->assertOk()
+        ->assertHeader('content-type', 'application/pdf');
+    expect($response->headers->get('content-disposition'))
+        ->toMatch('/^attachment; filename=office-event-report-\d{8}-\d{6}\.pdf$/')
+        ->and(substr($response->getContent(), 0, 5))->toBe('%PDF-');
+});
+
+test('office report route is only available to office accounts', function () {
+    $planning = User::factory()->create(['role' => 'planning_office']);
+
+    $this->actingAs($planning)->get(route('office.requests.report'))
+        ->assertRedirect('/office/login');
+});

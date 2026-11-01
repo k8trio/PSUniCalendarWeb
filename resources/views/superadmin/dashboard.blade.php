@@ -5,7 +5,6 @@
 @section('subheading')
     Welcome, {{ auth()->user()->name }} · {{ now()->format('l, F j, Y') }}
 @endsection
-
 @push('head')
     <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.css" rel="stylesheet">
     <link href="{{ asset('css/event-calendar.css') }}" rel="stylesheet">

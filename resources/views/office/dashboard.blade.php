@@ -60,6 +60,10 @@
                     <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM3.75 12h.007v.008H3.75V12zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm-.375 5.25h.007v.008H3.75v-.008zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" /></svg>
                     <span class="od-nav-text">Request Status</span>
                 </a>
+                <a href="{{ route('office.requests.report.preview') }}" data-nav-section="detailed-report" class="od-nav-link">
+                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 3.75h5.379a2.25 2.25 0 011.591.659l3.371 3.371a2.25 2.25 0 01.659 1.591v10.879A2.25 2.25 0 0117 22.5H8.25A2.25 2.25 0 016 20.25V6a2.25 2.25 0 012.25-2.25z" /><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 3.75V9h5.25M9 13.5h6m-6 3.75h6" /></svg>
+                    <span class="od-nav-text">Detailed Report</span>
+                </a>
                 <a href="{{ route('office.recent-activity') }}" data-nav-section="activity-log" class="od-nav-link">
                     <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6l4 2m5-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                     <span class="od-nav-text">Recent Activity</span>
@@ -386,7 +390,7 @@
             <section id="request-status" class="od-card">
                 <div class="od-card__head">
                     <h2 class="od-card__title">Request Status</h2>
-                    <button type="button" onclick="window.print()" class="od-btn od-btn--ghost od-btn--sm no-print">Print / Save as PDF</button>
+                    <a href="{{ route('office.requests.report.preview') }}" class="od-btn od-btn--ghost od-btn--sm no-print">View Detailed Report</a>
                 </div>
 
                 <form id="request-filter-form" method="GET" action="{{ ($requestStatusOnly ?? false) ? route('office.request-status') : route('office.dashboard') . '#request-status' }}" class="no-print">
