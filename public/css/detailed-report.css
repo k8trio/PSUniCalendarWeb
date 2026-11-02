@@ -8,6 +8,37 @@
     gap: 16px;
 }
 
+.report-filters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: end;
+    gap: 12px;
+    margin: 0 0 20px;
+    padding: 16px;
+    border: 1px solid #e8ebf2;
+    border-radius: 10px;
+    background: #f7f8fb;
+}
+
+.report-filters label {
+    display: grid;
+    flex: 1 1 190px;
+    gap: 6px;
+    color: #626985;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.report-filters select {
+    width: 100%;
+}
+
+.report-filters__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
 .report-preview {
     display: grid;
     gap: 16px;
@@ -30,6 +61,16 @@
     border: 1px solid #dfe3ed;
     border-radius: 10px;
     background: #fff;
+}
+
+.report-preview__event--compact .report-preview__fields > div {
+    padding-top: 7px;
+    padding-bottom: 7px;
+}
+
+.report-preview__event--compact .report-preview__fields dd {
+    white-space: normal;
+    text-align: left;
 }
 
 .report-preview__event-heading {

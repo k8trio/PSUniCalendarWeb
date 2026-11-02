@@ -35,25 +35,44 @@ class PlanningOfficeController extends Controller
         return view('superadmin.dashboard', $data + ['filters' => array_filter($filters)]);
     }
 
-    public function detailedReport()
+    public function detailedReport(Request $request)
     {
-        return view('superadmin.reports.events', $this->detailedReportData());
+        return view('superadmin.reports.events', $this->detailedReportData($request));
     }
 
-    public function downloadDetailedReport()
+    public function downloadDetailedReport(Request $request)
     {
-        return Pdf::loadView('reports.event-requests', $this->detailedReportData())
+        $reportData = $this->detailedReportData($request);
+
+        return Pdf::loadView('reports.event-requests', $reportData)
             ->setPaper('a4')
             ->download('planning-office-event-report-' . now()->format('Ymd-His') . '.pdf');
     }
 
-    private function detailedReportData(): array
+    private function detailedReportData(Request $request): array
     {
-        $events = EventRequest::query()
+        $allOfficeAccounts = User::where('role', 'office')->orderBy('name')->get(['id', 'name', 'email', 'campus']);
+        $reportOffices = $allOfficeAccounts
+            ->whereNotIn('campus', User::MAIN_CAMPUSES)
+            ->values();
+        $knownOfficeEmails = $allOfficeAccounts->pluck('email')->all();
+        $filters = $request->validate([
+            'office' => ['nullable', Rule::in([...$reportOffices->pluck('id')->map(fn ($id) => (string) $id), 'other'])],
+        ]);
+
+        $query = EventRequest::query();
+        if (($filters['office'] ?? null) === 'other') {
+            $query->whereNotIn('email', $knownOfficeEmails);
+        } elseif (! empty($filters['office'])) {
+            $selectedOffice = $reportOffices->firstWhere('id', (int) $filters['office']);
+            $query->where('email', $selectedOffice->email);
+        }
+
+        $events = $query
             ->orderBy('email')
             ->orderByDesc('start_datetime')
             ->get();
-        $officeNames = User::where('role', 'office')->pluck('name', 'email');
+        $officeNames = $allOfficeAccounts->pluck('name', 'email');
         $events->each(function (EventRequest $event) use ($officeNames) {
             $event->setAttribute(
                 'report_office_name',
@@ -61,11 +80,20 @@ class PlanningOfficeController extends Controller
             );
         });
 
+        $reportFilters = ['office' => $filters['office'] ?? ''];
+        $selectedOfficeName = $reportFilters['office'] === 'other'
+            ? 'Other offices'
+            : ($reportFilters['office'] ? $reportOffices->firstWhere('id', (int) $reportFilters['office'])?->name : 'All offices');
+
         return [
-            'reportTitle' => 'University Event Detailed Report',
+            'reportTitle' => 'Office Event Detailed Report',
             'officeName' => null,
             'events' => $events,
             'includeOfficeColumn' => true,
+            'showPostEndDetails' => false,
+            'reportOffices' => $reportOffices,
+            'reportFilters' => $reportFilters,
+            'reportFilterLabel' => $selectedOfficeName,
         ];
     }
 

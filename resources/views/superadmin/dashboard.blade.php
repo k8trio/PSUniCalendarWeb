@@ -36,6 +36,13 @@
         <div class="od-alert od-alert--error">{{ $errors->first() }}</div>
     @endif
 
+    {{-- ===== Centralized calendar ===== --}}
+    <section id="calendar">
+        <div id="planning-office-calendar" class="od-calendar">
+            @include('partials.calendar-masthead')
+        </div>
+    </section>
+
     <div class="po-dashboard-top">
         {{-- ===== Overview: all offices; click to see the same numbers per office ===== --}}
         <details class="od-card po-overview" id="overview">
@@ -199,13 +206,6 @@
                     </tr>
                 </tbody>
             </table>
-        </div>
-    </section>
-
-    {{-- ===== Centralized calendar ===== --}}
-    <section id="calendar">
-        <div id="planning-office-calendar" class="od-calendar">
-            @include('partials.calendar-masthead')
         </div>
     </section>
 

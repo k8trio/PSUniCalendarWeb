@@ -631,6 +631,7 @@ class OfficeController extends Controller
             'officeName' => $office->name,
             'events' => $events,
             'includeOfficeColumn' => false,
+            'showPostEndDetails' => true,
         ]);
     }
 
@@ -646,6 +647,7 @@ class OfficeController extends Controller
             'officeName' => $office->name,
             'events' => $events,
             'includeOfficeColumn' => false,
+            'showPostEndDetails' => true,
         ])->setPaper('a4')->download('office-event-report-' . now()->format('Ymd-His') . '.pdf');
     }
 }
