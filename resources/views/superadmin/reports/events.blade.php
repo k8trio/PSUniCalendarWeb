@@ -28,7 +28,6 @@
                     @foreach($reportOffices as $office)
                         <option value="{{ $office->id }}" @selected((string) $reportFilters['office'] === (string) $office->id)>{{ $office->name }}</option>
                     @endforeach
-                    <option value="other" @selected($reportFilters['office'] === 'other')>Other offices</option>
                 </select>
             </label>
             <div class="report-filters__actions">

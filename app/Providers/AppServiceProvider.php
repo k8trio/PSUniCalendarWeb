@@ -26,9 +26,14 @@ class AppServiceProvider extends ServiceProvider
         View::composer('layouts.planning-office', function ($view) {
             $offices = User::where('role', 'office')->orderBy('name')->get(['id', 'name', 'campus']);
 
-            // Campus groups are omitted from this Superadmin navigation.
+            // Show the main campus accounts at the end of the University Offices group.
             $officesByGroup = collect(User::SIDEBAR_OFFICE_GROUPS)
-                ->mapWithKeys(fn ($group) => [$group => $offices->where('campus', $group)->values()]);
+                ->mapWithKeys(fn ($group) => [
+                    $group => $offices
+                        ->whereNotIn('campus', User::MAIN_CAMPUSES)
+                        ->concat($offices->whereIn('campus', User::MAIN_CAMPUSES))
+                        ->values(),
+                ]);
 
             $view->with([
                 'sidebarOfficeGroups' => $officesByGroup,

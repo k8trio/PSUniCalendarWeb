@@ -3,9 +3,11 @@
 use App\Models\ActivityLog;
 use App\Models\EventRequest;
 use App\Models\User;
+use Database\Seeders\DatabaseSeeder;
 use Database\Seeders\DemoOfficeEventsSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 
 uses(RefreshDatabase::class);
@@ -269,7 +271,7 @@ test('planning office detailed report can filter by office before download', fun
     expect(substr($pdf->getContent(), 0, 5))->toBe('%PDF-');
 });
 
-test('planning office detailed report excludes Lingayen Binmaley and Alaminos campus offices from office choices', function () {
+test('planning office detailed report lists campus offices at the end and filters their events', function () {
     $campusOffices = collect();
     foreach (User::MAIN_CAMPUSES as $campus) {
         $office = User::factory()->create([
@@ -301,10 +303,44 @@ test('planning office detailed report excludes Lingayen Binmaley and Alaminos ca
         ->assertSee('Event from Binmaley Campus')
         ->assertSee('Event from Lingayen Campus');
     preg_match('/<select name="office".*?<\/select>/s', $response->getContent(), $officeSelect);
+    expect($officeSelect[0])->not->toContain('Other offices');
 
+    $optionOrder = [];
     foreach ($campusOffices as $office) {
-        expect($officeSelect[0])->not->toContain('<option value="' . $office->id . '"');
+        $option = '<option value="' . $office->id . '"';
+        expect($officeSelect[0])->toContain($option);
+        $optionOrder[] = strpos($officeSelect[0], $option);
+
+        $filtered = $this->get(route('planning_office.reports.events.preview', ['office' => $office->id]))
+            ->assertOk()
+            ->assertSee('Event from ' . $office->campus);
+
+        foreach ($campusOffices->where('id', '!=', $office->id) as $otherCampusOffice) {
+            $filtered->assertDontSee('Event from ' . $otherCampusOffice->campus);
+        }
     }
+
+    expect($optionOrder)->toBe(array_values($optionOrder));
+    $universityOfficeOption = strpos($officeSelect[0], '<option value="' . $selectableOffice->id . '"');
+    expect($universityOfficeOption)->toBeLessThan($optionOrder[0])
+        ->and($optionOrder[0])->toBeLessThan($optionOrder[1])
+        ->and($optionOrder[1])->toBeLessThan($optionOrder[2]);
+});
+
+test('detailed report includes unassigned events in all offices without an other offices option', function () {
+    dashboardEvent([
+        'email' => 'unlisted@psu.local',
+        'title' => 'Unassigned office event',
+    ]);
+
+    $this->actingAs($this->planning)
+        ->get(route('planning_office.reports.events.preview'))
+        ->assertOk()
+        ->assertSee('Unassigned office event')
+        ->assertDontSee('Other offices');
+
+    $this->get(route('planning_office.reports.events.preview', ['office' => 'other']))
+        ->assertSessionHasErrors('office');
 });
 
 test('office account details show approved events scheduled in the academic year', function () {
@@ -381,7 +417,7 @@ test('overview breaks the numbers down by university office', function () {
         ->assertDontSee('Apply filters');
 
     $offices = $response->viewData('officeSummaries');
-    expect($offices->keys()->all())->toBe(array_values(User::UNIVERSITY_OFFICE_ACCOUNT_LABELS))
+    expect($offices->keys()->all())->toBe(array_values(User::PLANNING_OFFICE_ACCOUNT_LABELS))
         ->and($offices['OFFICE OF THE PRESIDENT (OP)']['total'])->toBe(2)
         ->and($offices['OFFICE OF THE VICE PRESIDENT FOR ACADEMICS AND STUDENT SERVICES (OVPASS)']['pending'])->toBe(1)
         ->and($offices['OFFICE OF THE VICE PRESIDENT FOR QUALITY ASSURANCE (OVPQA)']['total'])->toBe(0)
@@ -611,25 +647,88 @@ test('invalid dashboard filters are rejected', function () {
     $this->actingAs($this->planning)->get('/planning-office?from=2026-10-10&to=2026-10-01')->assertSessionHasErrors('to');
 });
 
-test('planning office sidebar lists university offices without campus groups', function () {
+test('planning office sidebar lists main campus offices at the end of the university offices group', function () {
     User::factory()->create([
         'name' => 'Office of the President',
         'email' => 'op@psu.local',
         'role' => 'office',
         'campus' => User::UNIVERSITY_OFFICES,
     ]);
-    User::factory()->create([
+    foreach (User::MAIN_CAMPUSES as $campus) {
+        $email = array_search('PSU ' . str_replace(' Campus', '', $campus) . ' Campus', User::PLANNING_OFFICE_ACCOUNT_LABELS, true);
+        User::factory()->create([
+            'name' => User::PLANNING_OFFICE_ACCOUNT_LABELS[$email],
+            'email' => $email,
+            'role' => 'office',
+            'campus' => $campus,
+        ]);
+    }
+
+    $response = $this->actingAs($this->planning)->get('/planning-office')->assertOk();
+
+    preg_match('/<p class="od-nav-label">Offices<\/p>(.*?)<p class="od-nav-label">Account<\/p>/s', $response->getContent(), $sidebarOffices);
+    expect($sidebarOffices[1])
+        ->toContain('University Offices')
+        ->toContain('Office of the President')
+        ->toContain('PSU Alaminos Campus')
+        ->toContain('PSU Binmaley Campus')
+        ->toContain('PSU Lingayen Campus')
+        ->not->toContain('po-group__name">Alaminos Campus');
+
+    $presidentPosition = strpos($sidebarOffices[1], 'Office of the President');
+    $alaminosPosition = strpos($sidebarOffices[1], 'PSU Alaminos Campus');
+    $binmaleyPosition = strpos($sidebarOffices[1], 'PSU Binmaley Campus');
+    $lingayenPosition = strpos($sidebarOffices[1], 'PSU Lingayen Campus');
+    expect($presidentPosition)->toBeLessThan($alaminosPosition)
+        ->and($alaminosPosition)->toBeLessThan($binmaleyPosition)
+        ->and($binmaleyPosition)->toBeLessThan($lingayenPosition);
+});
+
+test('database seeder provisions credentials for main campus office accounts', function () {
+    $this->seed(DatabaseSeeder::class);
+
+    foreach ([
+        'alaminos@psu.local' => 'Alaminos Campus',
+        'binmaley@psu.local' => 'Binmaley Campus',
+        'lingayen@psu.local' => 'Lingayen Campus',
+    ] as $email => $campus) {
+        $account = User::where('email', $email)->firstOrFail();
+        expect($account->role)->toBe('office')
+            ->and($account->campus)->toBe($campus)
+            ->and(Hash::check('Office@123', $account->password))->toBeTrue();
+
+        $this->post(route('office.login.submit'), [
+            'email' => $email,
+            'password' => 'Office@123',
+        ])->assertRedirect(route('office.dashboard'));
+        $this->assertAuthenticatedAs($account);
+        $this->post(route('office.logout'));
+    }
+});
+
+test('planning office dashboard filters and groups events by campus office', function () {
+    $campusOffice = User::factory()->create([
         'name' => 'PSU Alaminos Campus',
         'email' => 'alaminos@psu.local',
         'role' => 'office',
         'campus' => 'Alaminos Campus',
     ]);
+    dashboardEvent([
+        'email' => $campusOffice->email,
+        'name' => $campusOffice->name,
+        'title' => 'Alaminos Campus event',
+        'campus' => 'Alaminos Campus',
+    ]);
 
-    $response = $this->actingAs($this->planning)->get('/planning-office')->assertOk();
+    $label = User::PLANNING_OFFICE_ACCOUNT_LABELS[$campusOffice->email];
+    $response = $this->actingAs($this->planning)
+        ->get('/planning-office?office=' . urlencode($label))
+        ->assertOk()
+        ->assertSee($label)
+        ->assertSee('Alaminos Campus event');
 
-    $response->assertSee('University Offices')
-        ->assertSee('Office of the President')
-        ->assertDontSee('PSU Alaminos Campus');
+    expect($response->viewData('summary')['total'])->toBe(1)
+        ->and($response->viewData('charts')['byOffice']['values'])->toContain(1);
 });
 
 test('conflicting submissions are listed as scheduling conflicts', function () {
@@ -720,15 +819,34 @@ test('the planning office calendar shows approved events only', function () {
         ]);
 });
 
-test('pending and returned requests never appear on the public calendar', function () {
-    dashboardEvent(['title' => 'Public Approved Event']);
-    dashboardEvent(['title' => 'Secret Pending Event', 'status' => 'pending']);
-    dashboardEvent(['title' => 'Secret Returned Event', 'status' => 'returned']);
+test('the home page opens the planning office login and links to university offices', function () {
+    $this->get('/')
+        ->assertRedirect(route('planning_office.login'));
 
-    $this->get('/')->assertOk()
-        ->assertSee('Public Approved Event')
-        ->assertDontSee('Secret Pending Event')
-        ->assertDontSee('Secret Returned Event');
+    $this->get(route('planning_office.login'))
+        ->assertOk()
+        ->assertSee('Planning Office')
+        ->assertSee('University Offices?')
+        ->assertSee('Sign in here')
+        ->assertSee(route('office.login'), false);
+
+    $this->get(route('office.login'))
+        ->assertOk()
+        ->assertSee('University Offices')
+        ->assertSee('Planning Office?')
+        ->assertSee('Sign in here')
+        ->assertSee(route('planning_office.login'), false);
+});
+
+test('the home page sends signed-in staff to their own dashboard', function () {
+    $this->actingAs($this->planning)
+        ->get('/')
+        ->assertRedirect(route('planning_office.dashboard'));
+
+    $office = User::factory()->create(['role' => 'office']);
+    $this->actingAs($office)
+        ->get('/')
+        ->assertRedirect(route('office.dashboard'));
 });
 
 test('an office can edit a request returned for revision', function () {

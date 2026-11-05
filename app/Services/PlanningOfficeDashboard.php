@@ -12,7 +12,7 @@ use Illuminate\Support\Collection;
  * Builds everything the Planning Office dashboard shows, from real event requests.
  *
  * Filters:
- *  - office: one of the university offices, or null for all submitting offices.
+ *  - office: one of the listed office accounts, or null for all submitting offices.
  *  - from / to: events whose schedule overlaps the range.
  *
  * Requests are grouped by the office account that submitted them.
@@ -97,9 +97,9 @@ class PlanningOfficeDashboard
                     $now,
                 )]),
             'officeAccounts' => User::where('role', 'office')
-                ->whereIn('email', array_keys(User::UNIVERSITY_OFFICE_ACCOUNT_LABELS))
+                ->whereIn('email', array_keys(User::PLANNING_OFFICE_ACCOUNT_LABELS))
                 ->get()
-                ->keyBy(fn (User $user) => User::UNIVERSITY_OFFICE_ACCOUNT_LABELS[$user->email]),
+                ->keyBy(fn (User $user) => User::PLANNING_OFFICE_ACCOUNT_LABELS[$user->email]),
             'queue' => $queue,
             'conflicts' => $conflicts,
             'upcoming' => $approved->filter(fn ($e) => $e->start_datetime > $now)->take(7)->values(),
@@ -149,16 +149,16 @@ class PlanningOfficeDashboard
         ];
     }
 
-    /** Submitting office for an event, or "Other offices" when it is not one of the listed university offices. */
+    /** Submitting office for an event, or "Other offices" when it is not a listed office account. */
     private function officeBucket(EventRequest $e): string
     {
-        return User::UNIVERSITY_OFFICE_ACCOUNT_LABELS[$e->email] ?? 'Other offices';
+        return User::PLANNING_OFFICE_ACCOUNT_LABELS[$e->email] ?? 'Other offices';
     }
 
-    /** Listed university offices, plus "Other offices" only when a request falls outside those accounts. */
+    /** Listed office accounts, plus "Other offices" only when a request falls outside those accounts. */
     private function officeBuckets(Collection $events): array
     {
-        $buckets = array_values(User::UNIVERSITY_OFFICE_ACCOUNT_LABELS);
+        $buckets = array_values(User::PLANNING_OFFICE_ACCOUNT_LABELS);
         if ($events->contains(fn ($e) => $this->officeBucket($e) === 'Other offices')) {
             $buckets[] = 'Other offices';
         }

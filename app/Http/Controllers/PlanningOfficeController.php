@@ -21,7 +21,7 @@ class PlanningOfficeController extends Controller
     public function dashboard(Request $request, PlanningOfficeDashboard $dashboard)
     {
         $filters = $request->validate([
-            'office' => ['nullable', Rule::in(array_values(User::UNIVERSITY_OFFICE_ACCOUNT_LABELS))],
+            'office' => ['nullable', Rule::in(array_values(User::PLANNING_OFFICE_ACCOUNT_LABELS))],
             'from' => ['nullable', 'date'],
             'to' => ['nullable', 'date', 'after_or_equal:from'],
         ]);
@@ -54,16 +54,18 @@ class PlanningOfficeController extends Controller
         $allOfficeAccounts = User::where('role', 'office')->orderBy('name')->get(['id', 'name', 'email', 'campus']);
         $reportOffices = $allOfficeAccounts
             ->whereNotIn('campus', User::MAIN_CAMPUSES)
+            ->concat(
+                $allOfficeAccounts
+                    ->whereIn('campus', User::MAIN_CAMPUSES)
+                    ->sortBy(fn (User $office) => array_search($office->campus, User::MAIN_CAMPUSES, true))
+            )
             ->values();
-        $knownOfficeEmails = $allOfficeAccounts->pluck('email')->all();
         $filters = $request->validate([
-            'office' => ['nullable', Rule::in([...$reportOffices->pluck('id')->map(fn ($id) => (string) $id), 'other'])],
+            'office' => ['nullable', Rule::in($reportOffices->pluck('id')->map(fn ($id) => (string) $id)->all())],
         ]);
 
         $query = EventRequest::query();
-        if (($filters['office'] ?? null) === 'other') {
-            $query->whereNotIn('email', $knownOfficeEmails);
-        } elseif (! empty($filters['office'])) {
+        if (! empty($filters['office'])) {
             $selectedOffice = $reportOffices->firstWhere('id', (int) $filters['office']);
             $query->where('email', $selectedOffice->email);
         }
@@ -81,9 +83,9 @@ class PlanningOfficeController extends Controller
         });
 
         $reportFilters = ['office' => $filters['office'] ?? ''];
-        $selectedOfficeName = $reportFilters['office'] === 'other'
-            ? 'Other offices'
-            : ($reportFilters['office'] ? $reportOffices->firstWhere('id', (int) $reportFilters['office'])?->name : 'All offices');
+        $selectedOfficeName = $reportFilters['office']
+            ? $reportOffices->firstWhere('id', (int) $reportFilters['office'])?->name
+            : 'All offices';
 
         return [
             'reportTitle' => 'Office Event Detailed Report',
@@ -122,9 +124,9 @@ class PlanningOfficeController extends Controller
             ->where('start_datetime', '<=', $selectedYear['end']);
 
         $approvedEvents = (clone $archiveQuery)->get();
-        $officeBreakdown = collect(array_fill_keys(array_values(User::UNIVERSITY_OFFICE_ACCOUNT_LABELS), 0))
+        $officeBreakdown = collect(array_fill_keys(array_values(User::PLANNING_OFFICE_ACCOUNT_LABELS), 0))
             ->merge($approvedEvents->countBy(
-                fn (EventRequest $event) => User::UNIVERSITY_OFFICE_ACCOUNT_LABELS[$event->email] ?? 'Other offices'
+                fn (EventRequest $event) => User::PLANNING_OFFICE_ACCOUNT_LABELS[$event->email] ?? 'Other offices'
             ));
         $monthlyEvents = [];
         for ($month = $selectedYear['start']->copy()->startOfMonth(); $month <= $selectedYear['end']; $month->addMonth()) {
@@ -166,7 +168,7 @@ class PlanningOfficeController extends Controller
                     ->orWhere('campus', 'like', $like)
                     ->orWhere('email', 'like', $like);
 
-                foreach (User::UNIVERSITY_OFFICE_ACCOUNT_LABELS as $email => $label) {
+                foreach (User::PLANNING_OFFICE_ACCOUNT_LABELS as $email => $label) {
                     if (str_contains(mb_strtolower($label), mb_strtolower($query))) {
                         $users->orWhere('email', $email);
                     }

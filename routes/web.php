@@ -1,5 +1,6 @@
 <?php
 
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\EventApprovalController;
 use App\Http\Controllers\PlanningOfficeAuthController;
@@ -85,9 +86,19 @@ Route::get('/events/{event}/documents/{documentIndex}', [UserController::class, 
     ->whereNumber('documentIndex')
     ->name('user.events.documents.show');
 
-// Home page: the new PSU landing page is the first thing visitors see at "/".
-// (The old public calendar was UserController@index; the route name is kept so existing links still work.)
-Route::view('/', 'landing')->name('user.calendar');
+Route::get('/', function () {
+    if (Auth::check()) {
+        if (Auth::user()->role === 'office') {
+            return redirect()->route('office.dashboard');
+        }
+
+        if (Auth::user()->role === 'planning_office') {
+            return redirect()->route('planning_office.dashboard');
+        }
+    }
+
+    return redirect()->route('planning_office.login');
+})->name('user.calendar');
 
 Route::domain('superadmin.unicalendar.test')->group(function () {
     Route::redirect('/', '/planning-office');

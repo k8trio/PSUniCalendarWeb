@@ -30,7 +30,7 @@ class User extends Authenticatable
         'Urdaneta Campus',
     ];
 
-    /** University offices shown in Planning Office dashboard summaries. */
+    /** University offices shown in public and office event filters. */
     public const UNIVERSITY_OFFICE_ACCOUNT_LABELS = [
         'op@psu.local' => 'OFFICE OF THE PRESIDENT (OP)',
         'ovpaass@psu.local' => 'OFFICE OF THE VICE PRESIDENT FOR ACADEMICS AND STUDENT SERVICES (OVPASS)',
@@ -38,6 +38,14 @@ class User extends Authenticatable
         'ovpafm@psu.local' => 'OFFICE OF THE VICE PRESIDENT FOR ADMINISRATION AND FINANCE MANAGEMENT (OVPAFM)',
         'ovpqa@psu.local' => 'OFFICE OF THE VICE PRESIDENT FOR QUALITY ASSURANCE (OVPQA)',
         'ovplia@psu.local' => 'OFFICE OF THE VICE PRESIDENT FOR LOCAL & INTERNATIONAL AFFAIRS (OVPLIA)',
+    ];
+
+    /** Office accounts included in Planning Office reporting and dashboard filters. */
+    public const PLANNING_OFFICE_ACCOUNT_LABELS = [
+        ...self::UNIVERSITY_OFFICE_ACCOUNT_LABELS,
+        'alaminos@psu.local' => 'PSU Alaminos Campus',
+        'binmaley@psu.local' => 'PSU Binmaley Campus',
+        'lingayen@psu.local' => 'PSU Lingayen Campus',
     ];
 
     /** Campuses with their own office account. */
@@ -51,7 +59,7 @@ class User extends Authenticatable
     /** Groups available when assigning an office account to a campus or university-wide group. */
     public const OFFICE_GROUPS = [self::UNIVERSITY_OFFICES, ...self::MAIN_CAMPUSES];
 
-    /** Groups displayed in the Planning Office sidebar. */
+    /** Planning Office sidebar combines the main campus accounts into the University Offices group. */
     public const SIDEBAR_OFFICE_GROUPS = [self::UNIVERSITY_OFFICES];
 
     /**

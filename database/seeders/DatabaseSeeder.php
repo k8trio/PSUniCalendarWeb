@@ -43,6 +43,11 @@ class DatabaseSeeder extends Seeder
             ['email' => 'sas@psu.local', 'name' => 'Student Affairs and Services (SAS)', 'campus' => 'University Offices'],
             ['email' => 'ous@psu.local', 'name' => 'Open University System (OUS)', 'campus' => 'University Offices'],
         ];
+        $campusOfficeAccounts = [
+            ['email' => 'alaminos@psu.local', 'name' => 'PSU Alaminos Campus', 'campus' => 'Alaminos Campus'],
+            ['email' => 'binmaley@psu.local', 'name' => 'PSU Binmaley Campus', 'campus' => 'Binmaley Campus'],
+            ['email' => 'lingayen@psu.local', 'name' => 'PSU Lingayen Campus', 'campus' => 'Lingayen Campus'],
+        ];
 
         foreach ($officeAccounts as $account) {
             $officeUser = User::firstOrCreate(
@@ -65,6 +70,20 @@ class DatabaseSeeder extends Seeder
                 'campus' => $account['campus'],
                 'remember_token' => Str::random(10),
             ])->save();
+        }
+
+        foreach ($campusOfficeAccounts as $account) {
+            User::firstOrCreate(
+                ['email' => $account['email']],
+                [
+                    'name' => $account['name'],
+                    'email_verified_at' => now(),
+                    'password' => Hash::make('Office@123'),
+                    'role' => 'office',
+                    'campus' => $account['campus'],
+                    'remember_token' => Str::random(10),
+                ]
+            );
         }
 
         $this->call([

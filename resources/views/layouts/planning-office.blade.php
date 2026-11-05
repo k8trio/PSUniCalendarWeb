@@ -61,7 +61,7 @@
                 </a>
             </nav>
 
-            {{-- University offices only; campus groups are omitted. --}}
+            {{-- University-wide offices and the main campus offices. --}}
             <p class="od-nav-label">Offices</p>
             <nav class="od-nav">
                 @foreach($sidebarOfficeGroups as $officeGroup => $offices)

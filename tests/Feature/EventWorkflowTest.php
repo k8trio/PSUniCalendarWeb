@@ -46,6 +46,45 @@ test('office recent activity page displays only the activity log', function () {
         ->assertSee('Back to Dashboard');
 });
 
+test('office detailed report uses the compact event card fields', function () {
+    $office = User::factory()->create(['role' => 'office']);
+    EventRequest::create([
+        'name' => $office->name,
+        'email' => $office->email,
+        'title' => 'Office compact report event',
+        'venue_name' => 'Main Hall',
+        'campus' => 'Lingayen Campus',
+        'description' => 'Private report detail that should not be shown.',
+        'event_for' => 'Office staff',
+        'attention_to' => 'Campus officials',
+        'start_datetime' => now()->addDays(3)->setTime(9, 0),
+        'end_datetime' => now()->addDays(3)->setTime(11, 0),
+        'status' => 'pending',
+        'digital_documents' => [],
+    ]);
+
+    $this->actingAs($office)
+        ->get(route('office.requests.report.preview'))
+        ->assertOk()
+        ->assertSee('Office Event Detailed Report')
+        ->assertSee('id="sidebar"', false)
+        ->assertSee('data-nav-section="detailed-report"', false)
+        ->assertSee('aria-current="page"', false)
+        ->assertSee('Logout')
+        ->assertSee('Office compact report event')
+        ->assertSee('Event title')
+        ->assertSee('Venue')
+        ->assertSee('Submitted by')
+        ->assertSee('Memo')
+        ->assertSee('None')
+        ->assertSee('Event date')
+        ->assertDontSee('Private report detail that should not be shown.')
+        ->assertDontSee('Planning Office note')
+        ->assertDontSee('<dt>Start</dt>', false)
+        ->assertDontSee('<dt>End</dt>', false)
+        ->assertDontSee('Pending');
+});
+
 test('office can delete only its own cancelled requests', function () {
     $office = User::factory()->create(['role' => 'office']);
     $otherOffice = User::factory()->create(['role' => 'office']);
