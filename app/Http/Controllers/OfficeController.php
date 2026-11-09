@@ -6,7 +6,9 @@ use Illuminate\Http\Request;
 use App\Models\ActivityLog;
 use App\Models\EventRequest;
 use App\Models\FavoriteVenue;
+use App\Models\OfficeRequestHistory;
 use App\Services\EventConflictChecker;
+use App\Services\OfficeRequestHistoryService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\DB;
@@ -19,7 +21,13 @@ use App\Models\User;
 
 class OfficeController extends Controller
 {
-    public function dashboard(Request $request, bool $addEventOnly = false, bool $requestStatusOnly = false, bool $activityOnly = false)
+    public function dashboard(
+        Request $request,
+        bool $addEventOnly = false,
+        bool $requestStatusOnly = false,
+        bool $activityOnly = false,
+        ?OfficeRequestHistoryService $requestHistory = null
+    )
     {
         $user = Auth::user();
         $email = $user->email;
@@ -128,6 +136,7 @@ class OfficeController extends Controller
 
         // ---- Recent activity log ----
         $recentActivity = ActivityLog::where('email', $email)->latest()->limit(8)->get();
+        $requestHistoryControls = ($requestHistory ?? app(OfficeRequestHistoryService::class))->controlsFor($user);
 
         return view('office.dashboard', compact(
             'addEventOnly',
@@ -152,7 +161,8 @@ class OfficeController extends Controller
             'reminder',
             'favoriteVenues',
             'recentActivity',
-            'venueOptions'
+            'venueOptions',
+            'requestHistoryControls'
         ));
     }
 
@@ -289,7 +299,11 @@ class OfficeController extends Controller
         }
     }
 
-    public function requestVenue(Request $request, EventConflictChecker $conflictChecker)
+    public function requestVenue(
+        Request $request,
+        EventConflictChecker $conflictChecker,
+        OfficeRequestHistoryService $requestHistory
+    )
     {
         $isUniversityWide = $request->boolean('is_university_wide');
         $validated = $request->validate([
@@ -349,7 +363,35 @@ class OfficeController extends Controller
                 return back()->withInput()->with('error', 'Only pending requests can be edited.');
             }
 
-            $existing->update([
+            DB::transaction(function () use ($existing, $request, $validated, $venue, $campus, $isUniversityWide, $files, $user, $requestHistory): void {
+                $before = $requestHistory->snapshot($existing);
+                $existing->update([
+                    'title' => $request->input('title'),
+                    'venue_name' => $venue,
+                    'event_for' => $validated['event_for'] ?? null,
+                    'attention_to' => $validated['attention_to'] ?? null,
+                    'campus' => $campus,
+                    'is_university_wide' => $isUniversityWide,
+                    'description' => $request->input('description', ''),
+                    'start_datetime' => $request->input('start_datetime'),
+                    'end_datetime' => $request->input('end_datetime'),
+                    'status' => 'pending',
+                    'digital_documents' => $files ?: $existing->digital_documents,
+                    'read_at' => null,
+                ]);
+                $requestHistory->record($user, $existing, 'edited', $before, $requestHistory->snapshot($existing));
+                ActivityLog::record($user->email, 'edited', "Edited request \"{$existing->title}\"");
+            });
+
+            return redirect(route('office.request-status'))
+                ->with('success', 'Your request has been updated.');
+        }
+
+        // ---- Creating a new request ----
+        $new = DB::transaction(function () use ($user, $request, $validated, $venue, $campus, $isUniversityWide, $files, $requestHistory): EventRequest {
+            $event = EventRequest::create([
+                'name' => $user->name,
+                'email' => $user->email,
                 'title' => $request->input('title'),
                 'venue_name' => $venue,
                 'event_for' => $validated['event_for'] ?? null,
@@ -360,34 +402,14 @@ class OfficeController extends Controller
                 'start_datetime' => $request->input('start_datetime'),
                 'end_datetime' => $request->input('end_datetime'),
                 'status' => 'pending',
-                'digital_documents' => $files ?: $existing->digital_documents,
-                'read_at' => null,
+                'digital_documents' => $files,
             ]);
 
-            ActivityLog::record($user->email, 'edited', "Edited request \"{$existing->title}\"");
+            $requestHistory->record($user, $event, 'created', null, $requestHistory->snapshot($event));
+            ActivityLog::record($user->email, 'submitted', "Submitted \"{$event->title}\" for {$event->venue_name}");
 
-            return redirect(route('office.request-status'))
-                ->with('success', 'Your request has been updated.');
-        }
-
-        // ---- Creating a new request ----
-        $new = EventRequest::create([
-            'name' => $user->name,
-            'email' => $user->email,
-            'title' => $request->input('title'),
-            'venue_name' => $venue,
-            'event_for' => $validated['event_for'] ?? null,
-            'attention_to' => $validated['attention_to'] ?? null,
-            'campus' => $campus,
-            'is_university_wide' => $isUniversityWide,
-            'description' => $request->input('description', ''),
-            'start_datetime' => $request->input('start_datetime'),
-            'end_datetime' => $request->input('end_datetime'),
-            'status' => 'pending',
-            'digital_documents' => $files,
-        ]);
-
-        ActivityLog::record($user->email, 'submitted', "Submitted \"{$new->title}\" for {$new->venue_name}");
+            return $event;
+        });
 
         return redirect(route('office.request-status'))
             ->with('success', 'Event request submitted. It is now awaiting Planning Office review.');
@@ -448,11 +470,38 @@ class OfficeController extends Controller
             return back()->with('error', 'Only pending requests can be cancelled.');
         }
 
-        $existing->update(['status' => 'cancelled']);
-        ActivityLog::record($user->email, 'cancelled', "Cancelled request \"{$existing->title}\"");
+        DB::transaction(function () use ($existing, $user): void {
+            $history = app(OfficeRequestHistoryService::class);
+            $before = $history->snapshot($existing);
+            $existing->update(['status' => 'cancelled']);
+            $history->record($user, $existing, 'cancelled', $before, $history->snapshot($existing));
+            ActivityLog::record($user->email, 'cancelled', "Cancelled request \"{$existing->title}\"");
+        });
 
         return redirect(route('office.request-status'))
             ->with('success', 'Request cancelled.');
+    }
+
+    public function undoRequest(OfficeRequestHistoryService $requestHistory)
+    {
+        try {
+            $requestHistory->undo(Auth::user());
+        } catch (\DomainException $exception) {
+            return back()->with('error', $exception->getMessage());
+        }
+
+        return back()->with('success', 'Your last request change was undone.');
+    }
+
+    public function redoRequest(OfficeRequestHistoryService $requestHistory)
+    {
+        try {
+            $requestHistory->redo(Auth::user());
+        } catch (\DomainException $exception) {
+            return back()->with('error', $exception->getMessage());
+        }
+
+        return back()->with('success', 'Your request change was redone.');
     }
 
     public function deleteCancelledRequest($id)
@@ -535,6 +584,7 @@ class OfficeController extends Controller
                 EventRequest::where('email', $oldEmail)->update(['email' => $validated['email']]);
                 FavoriteVenue::where('email', $oldEmail)->update(['email' => $validated['email']]);
                 ActivityLog::where('email', $oldEmail)->update(['email' => $validated['email']]);
+                OfficeRequestHistory::where('office_email', $oldEmail)->update(['office_email' => $validated['email']]);
             }
         });
 
@@ -619,7 +669,7 @@ class OfficeController extends Controller
         return response()->stream($callback, 200, $headers);
     }
 
-    public function detailedReport()
+    public function detailedReport(OfficeRequestHistoryService $requestHistory)
     {
         $office = Auth::user();
         $events = EventRequest::where('email', $office->email)
@@ -632,6 +682,7 @@ class OfficeController extends Controller
             'events' => $events,
             'includeOfficeColumn' => false,
             'showPostEndDetails' => false,
+            'requestHistoryControls' => $requestHistory->controlsFor($office),
         ]);
     }
 

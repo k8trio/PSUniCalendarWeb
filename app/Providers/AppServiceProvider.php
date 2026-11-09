@@ -4,6 +4,8 @@ namespace App\Providers;
 
 use App\Models\EventRequest;
 use App\Models\User;
+use App\Services\PlanningDecisionHistoryService;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 
@@ -38,6 +40,7 @@ class AppServiceProvider extends ServiceProvider
             $view->with([
                 'sidebarOfficeGroups' => $officesByGroup,
                 'sidebarNotificationCount' => EventRequest::whereIn('status', ['pending', 'conflict'])->count(),
+                'planningDecisionHistoryControls' => app(PlanningDecisionHistoryService::class)->controlsFor(Auth::user()),
             ]);
         });
     }

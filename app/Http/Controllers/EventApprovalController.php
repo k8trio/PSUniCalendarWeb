@@ -3,17 +3,26 @@
 namespace App\Http\Controllers;
 
 use App\Models\ActivityLog;
-use App\Models\EventRequest; // Adjust to match your model name
+use App\Models\EventRequest;
 use App\Services\EventConflictChecker;
-use Google\Client;
-use Google\Service\Calendar;
-use Google\Service\Calendar\Event;
+use App\Services\GoogleCalendarEventService;
+use App\Services\PlanningDecisionHistoryService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
+use Google\Exception as GoogleException;
+use InvalidArgumentException;
 
 class EventApprovalController extends Controller
 {
-    public function approve(Request $request, $id, EventConflictChecker $conflictChecker)
+    public function approve(
+        Request $request,
+        $id,
+        EventConflictChecker $conflictChecker,
+        GoogleCalendarEventService $calendar,
+        PlanningDecisionHistoryService $history
+    )
     {
         $booking = EventRequest::findOrFail($id);
         if (! in_array($booking->status, EventRequest::REVIEW_STATUSES, true)) {
@@ -49,6 +58,7 @@ class EventApprovalController extends Controller
             return back()->withInput()->with('error', "This schedule conflicts with {$conflictTitles}. Adjust the venue or time before approving.");
         }
 
+        $before = $history->snapshot($booking);
         $originalStatus = $booking->status;
         $booking->fill($proposal);
         $rescheduled = $booking->isDirty(['venue_name', 'campus', 'start_datetime', 'end_datetime']);
@@ -60,53 +70,38 @@ class EventApprovalController extends Controller
         }
         $booking->read_at = null;   // the office gets notified of the decision
 
-        try {
-            if (config('services.google.service_account_json') && config('services.google.calendar_id')) {
-                $client = new Client();
-                $client->setAuthConfig(config('services.google.service_account_json'));
-                $client->addScope(Calendar::CALENDAR);
-
-                $service = new Calendar($client);
-
-                $event = new Event([
-                    'summary' => $booking->title,
-                    'location' => $booking->venue_name,
-                    'description' => $booking->description,
-                    'start' => [
-                        'dateTime' => date('c', strtotime($booking->start_datetime)),
-                        'timeZone' => 'Asia/Manila',
-                    ],
-                    'end' => [
-                        'dateTime' => date('c', strtotime($booking->end_datetime)),
-                        'timeZone' => 'Asia/Manila',
-                    ],
+        $googleEventId = null;
+        $syncFailed = false;
+        if ($calendar->isConfigured()) {
+            try {
+                $googleEventId = $calendar->insert($booking);
+            } catch (GoogleException|InvalidArgumentException $exception) {
+                Log::error('Google Calendar insert failed while approving an event.', [
+                    'event_request_id' => $booking->id,
+                    'message' => $exception->getMessage(),
                 ]);
-
-                $googleEvent = $service->events->insert(config('services.google.calendar_id'), $event);
-
-                $booking->status = 'approved';
-                $booking->google_event_id = $googleEvent->getId();
-                $booking->save();
-                $this->logApproval($booking, $originalStatus, $rescheduled);
-
-                return back()->with('success', 'Event approved and added to Google Calendar.');
+                $syncFailed = true;
             }
+        }
 
+        DB::transaction(function () use ($booking, $googleEventId, $history, $before, $originalStatus, $rescheduled): void {
             $booking->status = 'approved';
+            $booking->google_event_id = $googleEventId;
             $booking->save();
+            $history->record(Auth::user(), $booking, 'approved', $before, $history->snapshot($booking));
             $this->logApproval($booking, $originalStatus, $rescheduled);
+        });
 
-            return back()->with('success', 'Event approved successfully.');
-        } catch (\Throwable $e) {
-            $booking->status = 'approved';
-            $booking->save();
-            $this->logApproval($booking, $originalStatus, $rescheduled);
-
+        if ($syncFailed) {
             return back()->with('error', 'Event approved locally, but Google Calendar sync could not be completed.');
         }
+
+        return back()->with('success', $googleEventId
+            ? 'Event approved and added to Google Calendar.'
+            : 'Event approved successfully.');
     }
 
-    public function reject(Request $request, $id)
+    public function reject(Request $request, $id, PlanningDecisionHistoryService $history)
     {
         $validated = $request->validate([
             'planning_note' => ['nullable', 'string', 'max:2000'],
@@ -117,17 +112,21 @@ class EventApprovalController extends Controller
         }
 
         $originalStatus = $booking->status;
-        $booking->update([
-            'status' => 'rejected',
-            'planning_note' => $validated['planning_note'] ?? $booking->planning_note,
-            'read_at' => null,
-        ]);
+        $before = $history->snapshot($booking);
+        DB::transaction(function () use ($booking, $validated, $history, $before, $originalStatus): void {
+            $booking->update([
+                'status' => 'rejected',
+                'planning_note' => $validated['planning_note'] ?? $booking->planning_note,
+                'read_at' => null,
+            ]);
+            $history->record(Auth::user(), $booking, 'rejected', $before, $history->snapshot($booking));
 
-        if ($originalStatus === 'conflict') {
-            $this->log('conflict_resolved', "Resolved the conflict on \"{$booking->title}\" by rejecting it");
-        } else {
-            $this->log('rejected', "Rejected \"{$booking->title}\" from {$booking->name}");
-        }
+            if ($originalStatus === 'conflict') {
+                $this->log('conflict_resolved', "Resolved the conflict on \"{$booking->title}\" by rejecting it");
+            } else {
+                $this->log('rejected', "Rejected \"{$booking->title}\" from {$booking->name}");
+            }
+        });
 
         return back()->with('success', 'Event request rejected.');
     }
@@ -136,7 +135,7 @@ class EventApprovalController extends Controller
      * Send a pending request back to the office for revision. The office can edit and
      * resubmit it; the planning note tells them what to change.
      */
-    public function returnForRevision(Request $request, $id)
+    public function returnForRevision(Request $request, $id, PlanningDecisionHistoryService $history)
     {
         $validated = $request->validate([
             'planning_note' => ['required', 'string', 'max:2000'],
@@ -149,12 +148,16 @@ class EventApprovalController extends Controller
             return back()->with('error', 'Only requests awaiting review can be returned for revision.');
         }
 
-        $booking->update([
-            'status' => 'returned',
-            'planning_note' => $validated['planning_note'],
-            'read_at' => null,
-        ]);
-        $this->log('returned', "Returned \"{$booking->title}\" to {$booking->name} for revision");
+        $before = $history->snapshot($booking);
+        DB::transaction(function () use ($booking, $validated, $history, $before): void {
+            $booking->update([
+                'status' => 'returned',
+                'planning_note' => $validated['planning_note'],
+                'read_at' => null,
+            ]);
+            $history->record(Auth::user(), $booking, 'returned', $before, $history->snapshot($booking));
+            $this->log('returned', "Returned \"{$booking->title}\" to {$booking->name} for revision");
+        });
 
         return back()->with('success', 'Request returned to the office for revision.');
     }

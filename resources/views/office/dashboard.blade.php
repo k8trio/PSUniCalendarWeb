@@ -646,6 +646,8 @@
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
     <script src="{{ asset('js/event-calendar.js') }}"></script>
     <script src="{{ asset('js/ui-feedback.js') }}"></script>
+    @include('office.partials.request-history-commands')
+    <script src="{{ asset('js/office-request-history-shortcuts.js') }}"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             var calendarPanel = document.getElementById('calendar-panel');

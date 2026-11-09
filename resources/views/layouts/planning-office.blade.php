@@ -180,6 +180,8 @@
         </div>
     </main>
 
+    @include('layouts.partials.planning-decision-history-commands')
+    <script src="{{ asset('js/planning-decision-history-shortcuts.js') }}"></script>
     <script>
         (function () {
             var sidebar = document.getElementById('sidebar');

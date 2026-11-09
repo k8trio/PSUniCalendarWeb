@@ -8,6 +8,7 @@ use App\Http\Controllers\PlanningOfficeController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\OfficeAuthController;
 use App\Http\Controllers\OfficeController;
+use App\Http\Controllers\PlanningDecisionHistoryController;
 
 Route::redirect('/superadmin/login', '/planning-office/login');
 Route::redirect('/superadmin', '/planning-office');
@@ -28,6 +29,8 @@ Route::middleware(['auth', 'role:office'])->prefix('office')->group(function () 
     Route::get('/requests/detailed-report.pdf', [OfficeController::class, 'downloadDetailedReport'])->name('office.requests.report');
     Route::get('/events/{event}/documents/{documentIndex}', [OfficeController::class, 'eventDocument'])->whereNumber('documentIndex')->name('office.events.documents.show');
     Route::post('/request-venue', [OfficeController::class, 'requestVenue'])->name('office.request');
+    Route::post('/requests/undo', [OfficeController::class, 'undoRequest'])->name('office.requests.undo');
+    Route::post('/requests/redo', [OfficeController::class, 'redoRequest'])->name('office.requests.redo');
     Route::get('/check-availability', [OfficeController::class, 'checkAvailability'])->name('office.availability');
 
     // Quick actions / shortcuts
@@ -65,6 +68,8 @@ Route::middleware(['auth', 'role:planning_office'])->prefix('planning-office')->
     Route::post('/approve/{id}', [EventApprovalController::class, 'approve'])->name('planning_office.approve');
     Route::post('/reject/{id}', [EventApprovalController::class, 'reject'])->name('planning_office.reject');
     Route::post('/return/{id}', [EventApprovalController::class, 'returnForRevision'])->name('planning_office.return');
+    Route::post('/decisions/undo', [PlanningDecisionHistoryController::class, 'undo'])->name('planning_office.decisions.undo');
+    Route::post('/decisions/redo', [PlanningDecisionHistoryController::class, 'redo'])->name('planning_office.decisions.redo');
     Route::get('/manage-venues', [PlanningOfficeController::class, 'manageVenues'])->name('planning_office.venues');
     Route::post('/manage-venues', [PlanningOfficeController::class, 'storeVenue'])->name('planning_office.venues.store');
     Route::put('/manage-venues/{venue}', [PlanningOfficeController::class, 'updateVenue'])->name('planning_office.venues.update');

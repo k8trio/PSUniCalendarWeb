@@ -39,6 +39,8 @@
             </section>
         </div>
     </main>
+    @include('office.partials.request-history-commands')
+    <script src="{{ asset('js/office-request-history-shortcuts.js') }}"></script>
     <script>
         const sidebar = document.getElementById('sidebar');
         const sidebarToggle = document.getElementById('sidebar-toggle');
