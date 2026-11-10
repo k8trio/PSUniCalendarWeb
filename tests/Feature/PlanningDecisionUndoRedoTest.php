@@ -157,5 +157,5 @@ test('decision history is isolated per Planning Office account and rejects stale
 
     $this->actingAs(User::factory()->create(['role' => 'office']))
         ->post(route('planning_office.decisions.undo'))
-        ->assertRedirect('/planning-office/login');
+        ->assertRedirect('/login');
 });

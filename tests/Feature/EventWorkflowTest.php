@@ -300,5 +300,5 @@ test('requester offices cannot access planning office administration', function 
 
     $this->actingAs($requester)
         ->get('/planning-office/manage-venues')
-        ->assertRedirect('/planning-office/login');
+        ->assertRedirect('/login');
 });

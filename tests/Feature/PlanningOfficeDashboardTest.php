@@ -792,7 +792,7 @@ test('only the planning office can return requests', function () {
     $office = User::factory()->create(['role' => 'office']);
 
     $this->actingAs($office)->post("/planning-office/return/{$request->id}", ['planning_note' => 'x'])
-        ->assertRedirect('/planning-office/login');
+        ->assertRedirect('/login');
     expect($request->refresh()->status)->toBe('pending');
 });
 
@@ -819,23 +819,56 @@ test('the planning office calendar shows approved events only', function () {
         ]);
 });
 
-test('the home page opens the planning office login and links to university offices', function () {
+test('the home page opens the shared staff login and legacy login pages redirect to it', function () {
     $this->get('/')
-        ->assertRedirect(route('planning_office.login'));
+        ->assertRedirect(route('login'));
 
-    $this->get(route('planning_office.login'))
+    $this->get(route('login'))
         ->assertOk()
-        ->assertSee('Planning Office')
-        ->assertSee('University Offices?')
-        ->assertSee('Sign in here')
-        ->assertSee(route('office.login'), false);
+        ->assertSee('Login')
+        ->assertDontSee('Staff Portal')
+        ->assertDontSee('Checking account...')
+        ->assertSee('Signing in')
+        ->assertDontSee('Planning Office?')
+        ->assertDontSee('University Offices?')
+        ->assertSee(route('login.submit'), false);
 
     $this->get(route('office.login'))
-        ->assertOk()
-        ->assertSee('University Offices')
-        ->assertSee('Planning Office?')
-        ->assertSee('Sign in here')
-        ->assertSee(route('planning_office.login'), false);
+        ->assertRedirect(route('login'));
+
+    $this->get(route('planning_office.login'))
+        ->assertRedirect(route('login'));
+});
+
+test('shared staff login routes office and Planning Office accounts by role', function () {
+    $office = User::factory()->create([
+        'role' => 'office',
+        'email' => 'shared-office@psu.local',
+        'password' => Hash::make('Office@123'),
+    ]);
+
+    $this->post(route('login.submit'), [
+        'email' => $office->email,
+        'password' => 'Office@123',
+    ])->assertRedirect(route('office.dashboard'));
+    $this->assertAuthenticatedAs($office);
+
+    $this->post(route('office.logout'))->assertRedirect(route('login'));
+
+    $this->post(route('login.submit'), [
+        'email' => $this->planning->email,
+        'password' => 'password',
+    ])->assertRedirect(route('planning_office.dashboard'));
+    $this->assertAuthenticatedAs($this->planning);
+
+    $this->post(route('planning_office.logout'));
+    $nonStaff = User::factory()->create(['role' => 'user']);
+    $this->post(route('login.submit'), [
+        'email' => $nonStaff->email,
+        'password' => 'password',
+    ])->assertRedirect(route('login'))
+        ->assertSessionHasErrors('email', 'This account does not have staff portal access.');
+    $this->assertGuest();
 });
 
 test('the home page sends signed-in staff to their own dashboard', function () {

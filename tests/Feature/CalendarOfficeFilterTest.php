@@ -211,5 +211,5 @@ test('office report route is only available to office accounts', function () {
     $planning = User::factory()->create(['role' => 'planning_office']);
 
     $this->actingAs($planning)->get(route('office.requests.report'))
-        ->assertRedirect('/office/login');
+        ->assertRedirect('/login');
 });

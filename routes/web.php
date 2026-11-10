@@ -3,21 +3,22 @@
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\EventApprovalController;
-use App\Http\Controllers\PlanningOfficeAuthController;
 use App\Http\Controllers\PlanningOfficeController;
 use App\Http\Controllers\UserController;
-use App\Http\Controllers\OfficeAuthController;
 use App\Http\Controllers\OfficeController;
 use App\Http\Controllers\PlanningDecisionHistoryController;
+use App\Http\Controllers\StaffAuthController;
 
 Route::redirect('/superadmin/login', '/planning-office/login');
 Route::redirect('/superadmin', '/planning-office');
 Route::redirect('/superadmin/pending-approvals', '/planning-office/pending-approvals');
 Route::redirect('/superadmin/manage-venues', '/planning-office/manage-venues');
 
-Route::get('/office/login', [OfficeAuthController::class, 'showLogin'])->name('office.login');
-Route::post('/office/login', [OfficeAuthController::class, 'login'])->name('office.login.submit');
-Route::post('/office/logout', [OfficeAuthController::class, 'logout'])->name('office.logout');
+Route::get('/login', [StaffAuthController::class, 'showLogin'])->name('login');
+Route::post('/login', [StaffAuthController::class, 'login'])->name('login.submit');
+Route::get('/office/login', [StaffAuthController::class, 'redirectToLogin'])->name('office.login');
+Route::post('/office/login', [StaffAuthController::class, 'login'])->name('office.login.submit');
+Route::post('/office/logout', [StaffAuthController::class, 'logout'])->name('office.logout');
 
 Route::middleware(['auth', 'role:office'])->prefix('office')->group(function () {
     Route::get('/', [OfficeController::class, 'dashboard'])->name('office.dashboard');
@@ -51,9 +52,9 @@ Route::middleware(['auth', 'role:office'])->prefix('office')->group(function () 
     Route::patch('/change-password', [OfficeController::class, 'changePassword'])->name('office.password.update');
 });
 
-Route::get('/planning-office/login', [PlanningOfficeAuthController::class, 'showLogin'])->name('planning_office.login');
-Route::post('/planning-office/login', [PlanningOfficeAuthController::class, 'login'])->name('planning_office.login.submit');
-Route::post('/planning-office/logout', [PlanningOfficeAuthController::class, 'logout'])->name('planning_office.logout');
+Route::get('/planning-office/login', [StaffAuthController::class, 'redirectToLogin'])->name('planning_office.login');
+Route::post('/planning-office/login', [StaffAuthController::class, 'login'])->name('planning_office.login.submit');
+Route::post('/planning-office/logout', [StaffAuthController::class, 'logout'])->name('planning_office.logout');
 
 Route::middleware(['auth', 'role:planning_office'])->prefix('planning-office')->group(function () {
     Route::get('/', [PlanningOfficeController::class, 'dashboard'])->name('planning_office.dashboard');
@@ -102,10 +103,10 @@ Route::get('/', function () {
         }
     }
 
-    return redirect()->route('planning_office.login');
+    return redirect()->route('login');
 })->name('user.calendar');
 
 Route::domain('superadmin.unicalendar.test')->group(function () {
     Route::redirect('/', '/planning-office');
-    Route::redirect('/login', '/planning-office/login');
+    Route::get('/login', [StaffAuthController::class, 'showLogin']);
 });

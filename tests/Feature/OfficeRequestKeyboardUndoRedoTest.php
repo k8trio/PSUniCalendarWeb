@@ -118,5 +118,5 @@ test('undo history stays scoped to its office and rejects requests changed by Pl
 
     $this->actingAs(User::factory()->create(['role' => 'planning_office']))
         ->post(route('office.requests.undo'))
-        ->assertRedirect('/office/login');
+        ->assertRedirect('/login');
 });

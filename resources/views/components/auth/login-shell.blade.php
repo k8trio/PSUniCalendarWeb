@@ -98,6 +98,7 @@
     if (f && b) {
         f.addEventListener('submit', () => {
             b.disabled = true;
+            b.querySelector('span').textContent = 'Signing in...';
             b.classList.add('is-loading');
             b.setAttribute('aria-busy', 'true');
         });
