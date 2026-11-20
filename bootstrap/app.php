@@ -16,6 +16,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'auth' => \App\Http\Middleware\Authenticate::class,
             'verified' => \Illuminate\Auth\Middleware\EnsureEmailIsVerified::class,
             'role' => \App\Http\Middleware\RoleMiddleware::class,
+            'office.password.change_required' => \App\Http\Middleware\RequireOfficePasswordChange::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

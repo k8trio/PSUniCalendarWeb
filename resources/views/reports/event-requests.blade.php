@@ -4,8 +4,23 @@
     <meta charset="UTF-8">
     <title>{{ $reportTitle }}</title>
     <style>
-        @page { margin: 28px 32px; }
+        @page { margin: 192px 72px 90px; }
         body { color: #20243a; font-family: DejaVu Sans, sans-serif; font-size: 10px; line-height: 1.45; }
+        .report-letterhead { position: fixed; top: -205px; left: -72px; right: -72px; height: 128.1pt; background: #ffff00; }
+        .report-letterhead__seal { position: absolute; top: 21pt; left: 38pt; width: 90pt; height: 90pt; }
+        .report-letterhead__identity { position: absolute; top: 0; right: 96pt; left: 96pt; color: #111; text-align: center; font-family: ReportTemplateTimes, "Times New Roman", serif; }
+        .report-letterhead__identity span, .report-letterhead__identity strong { position: absolute; right: 0; left: 0; display: block; font-weight: normal; }
+        .report-letterhead__identity .report-letterhead__republic { top: 20pt; font-size: 11pt; }
+        .report-letterhead__identity strong { top: 34pt; font-family: ReportTemplateOldEnglish, "Old English Text MT", serif; font-size: 24pt; line-height: 1; }
+        .report-letterhead__identity .report-letterhead__campus { top: 62pt; font-size: 11pt; }
+        .report-letterhead__identity .report-letterhead__address { top: 75pt; font-size: 11pt; }
+        .report-letterhead__identity .report-letterhead__contacts { top: 99pt; font-family: Arial, sans-serif; font-size: 7pt; white-space: nowrap; }
+        .report-letterhead__contacts img { width: 10.8pt; height: 10.8pt; vertical-align: middle; }
+        .report-letterhead__bagong { position: absolute; top: 13.8pt; right: 44.7pt; width: 101.1pt; height: 95pt; }
+        .report-letterhead__rule { position: absolute; top: 90pt; right: 18pt; left: 18pt; height: 0.75pt; background: #fff; }
+        .report-letterfoot { position: fixed; right: -72px; bottom: -90px; left: -72px; height: 86px; }
+        .report-letterfoot__banner { position: absolute; bottom: 0; left: 0; width: 100%; height: auto; }
+        .report-letterfoot__logos { position: absolute; right: 31.2pt; bottom: 62px; width: 328.8pt; height: 19.55pt; }
         h1 { margin: 0 0 5px; color: #26336b; font-size: 20px; }
         .report-meta { margin-bottom: 20px; color: #626985; font-size: 10px; }
         .event { margin: 0 0 4px; border: 1px solid #dfe3ed; border-radius: 5px; }
@@ -24,6 +39,7 @@
     </style>
 </head>
 <body>
+    @include('reports.partials.letterhead')
     <h1>{{ $reportTitle }}</h1>
     <p class="report-meta">
         @if($officeName)

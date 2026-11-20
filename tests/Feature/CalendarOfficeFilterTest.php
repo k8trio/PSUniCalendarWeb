@@ -199,7 +199,6 @@ test('office can download a detailed PDF containing only its event requests', fu
         ->assertSee(route('office.requests.report'));
 
     $response = $this->actingAs($office)->get(route('office.requests.report'));
-
     $response->assertOk()
         ->assertHeader('content-type', 'application/pdf');
     expect($response->headers->get('content-disposition'))
@@ -212,4 +211,33 @@ test('office report route is only available to office accounts', function () {
 
     $this->actingAs($planning)->get(route('office.requests.report'))
         ->assertRedirect('/login');
+});
+
+test('office detailed PDF uses the supplied Word template fonts and logo sizes', function () {
+    $office = User::factory()->create(['role' => 'office']);
+    EventRequest::create([
+        'name' => $office->name,
+        'email' => $office->email,
+        'title' => 'Template report event',
+        'venue_name' => 'Main Hall',
+        'campus' => 'Lingayen Campus',
+        'start_datetime' => now()->addDay(),
+        'end_datetime' => now()->addDay()->addHour(),
+        'status' => 'approved',
+    ]);
+
+    $response = $this->actingAs($office)->get(route('office.requests.report'));
+    $response->assertOk()->assertHeader('content-type', 'application/pdf');
+    $pdf = $response->getContent();
+
+    expect(substr($pdf, 0, 5))->toBe('%PDF-')
+        ->and($pdf)->toContain('/MediaBox [0.000 0.000 612.000 936.000]')
+        ->and(substr_count($pdf, '/Subtype /Image'))->toBeGreaterThanOrEqual(3)
+        ->and($pdf)->toContain('OldEnglishTextMT')
+        ->and($pdf)->toContain('TimesNewRomanPSMT')
+        ->and($pdf)->toContain('/Width 316')
+        ->and($pdf)->toContain('/Width 422')
+        ->and($pdf)->toContain('/Height 396')
+        ->and($pdf)->toContain('/SMask')
+        ->and(strlen($pdf))->toBeLessThan(1_000_000);
 });

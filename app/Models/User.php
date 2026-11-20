@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
-#[Fillable(['name', 'email', 'password', 'role', 'campus', 'contact_person', 'contact_number'])]
+#[Fillable(['name', 'email', 'password', 'must_change_password', 'role', 'campus', 'parent_office_id', 'contact_person', 'contact_number'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
@@ -71,6 +71,11 @@ class User extends Authenticatable
         return in_array($this->campus, self::CAMPUSES, true);
     }
 
+    public function parentOffice(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(self::class, 'parent_office_id');
+    }
+
     /**
      * Can this account see an event held at the given campus?
      * University-wide offices see everything; a campus office sees its own campus
@@ -125,6 +130,7 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'must_change_password' => 'boolean',
         ];
     }
 }

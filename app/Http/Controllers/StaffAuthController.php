@@ -15,7 +15,10 @@ class StaffAuthController extends Controller
     {
         if (Auth::check()) {
             return match (Auth::user()->role) {
-                'office' => redirect()->route('office.dashboard'),
+                'office' => Auth::user()->must_change_password
+                    ? redirect()->route('office.password.force')
+                    : redirect()->route('office.dashboard'),
+                'office_viewer' => redirect()->route('office.viewer-calendar'),
                 'planning_office' => redirect()->route('planning_office.dashboard'),
                 default => view('auth.staff-login'),
             };
@@ -48,7 +51,10 @@ class StaffAuthController extends Controller
         }
 
         $destination = match (Auth::user()->role) {
-            'office' => route('office.dashboard'),
+            'office' => Auth::user()->must_change_password
+                ? route('office.password.force')
+                : route('office.dashboard'),
+            'office_viewer' => route('office.viewer-calendar'),
             'planning_office' => route('planning_office.dashboard'),
             default => null,
         };

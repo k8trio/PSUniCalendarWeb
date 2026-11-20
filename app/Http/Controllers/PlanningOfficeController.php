@@ -8,9 +8,11 @@ use App\Models\User;
 use App\Models\Venue;
 use App\Services\EventConflictChecker;
 use App\Services\PlanningOfficeDashboard;
+use App\Services\ReportTemplateFonts;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
@@ -43,9 +45,13 @@ class PlanningOfficeController extends Controller
     public function downloadDetailedReport(Request $request)
     {
         $reportData = $this->detailedReportData($request);
+        $templateFonts = app(ReportTemplateFonts::class)->forPdf();
+        $reportData['templateFonts'] = $templateFonts;
 
         return Pdf::loadView('reports.event-requests', $reportData)
-            ->setPaper('a4')
+            ->setOption('chroot', $templateFonts['chroot'])
+            ->setOption('enable_font_subsetting', true)
+            ->setPaper([0, 0, 612, 936])
             ->download('planning-office-event-report-' . now()->format('Ymd-His') . '.pdf');
     }
 
@@ -276,6 +282,30 @@ class PlanningOfficeController extends Controller
 
         return redirect()->route('planning_office.offices.show', $office)
             ->with('success', "{$office->name} is now listed under {$validated['campus']}.");
+    }
+
+    public function resetOfficePassword(User $office)
+    {
+        abort_unless($office->role === 'office', 404);
+
+        $temporaryPassword = 'Office@123';
+        $planningOffice = Auth::user();
+
+        DB::transaction(function () use ($office, $planningOffice, $temporaryPassword): void {
+            $office->update([
+                'password' => $temporaryPassword,
+                'must_change_password' => true,
+            ]);
+
+            ActivityLog::record(
+                $office->email,
+                'password_reset',
+                "Password reset by Planning Office account \"{$planningOffice->name}\". A temporary password was issued."
+            );
+        });
+
+        return redirect()->route('planning_office.offices.show', $office)
+            ->with('temporary_password', $temporaryPassword);
     }
 
     public function notifications()

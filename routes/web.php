@@ -6,6 +6,7 @@ use App\Http\Controllers\EventApprovalController;
 use App\Http\Controllers\PlanningOfficeController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\OfficeController;
+use App\Http\Controllers\OfficeCalendarViewerController;
 use App\Http\Controllers\PlanningDecisionHistoryController;
 use App\Http\Controllers\StaffAuthController;
 
@@ -20,7 +21,20 @@ Route::get('/office/login', [StaffAuthController::class, 'redirectToLogin'])->na
 Route::post('/office/login', [StaffAuthController::class, 'login'])->name('office.login.submit');
 Route::post('/office/logout', [StaffAuthController::class, 'logout'])->name('office.logout');
 
-Route::middleware(['auth', 'role:office'])->prefix('office')->group(function () {
+Route::middleware(['auth', 'role:office_viewer'])->prefix('office/calendar-view')->group(function () {
+    Route::get('/', [OfficeCalendarViewerController::class, 'show'])->name('office.viewer-calendar');
+    Route::get('/events/{event}/documents/{documentIndex}', [OfficeCalendarViewerController::class, 'eventDocument'])
+        ->whereNumber('documentIndex')
+        ->name('office.viewer-calendar.documents.show');
+    Route::post('/logout', [StaffAuthController::class, 'logout'])->name('office.viewer-calendar.logout');
+});
+
+Route::middleware(['auth', 'role:office'])->group(function () {
+    Route::get('/office/required-password-change', [OfficeController::class, 'forcePasswordChange'])->name('office.password.force');
+    Route::patch('/office/required-password-change', [OfficeController::class, 'updateForcedPassword'])->name('office.password.force.update');
+});
+
+Route::middleware(['auth', 'role:office', 'office.password.change_required'])->prefix('office')->group(function () {
     Route::get('/', [OfficeController::class, 'dashboard'])->name('office.dashboard');
     Route::get('/add-event', [OfficeController::class, 'addEvent'])->name('office.add-event');
     Route::get('/request-status', [OfficeController::class, 'requestStatus'])->name('office.request-status');
@@ -80,6 +94,8 @@ Route::middleware(['auth', 'role:planning_office'])->prefix('planning-office')->
     // Offices (grouped by campus in the sidebar)
     Route::get('/offices/{office}', [PlanningOfficeController::class, 'showOffice'])->name('planning_office.offices.show');
     Route::patch('/offices/{office}/campus', [PlanningOfficeController::class, 'updateOfficeCampus'])->name('planning_office.offices.campus');
+    Route::post('/offices/{office}/password-reset', [PlanningOfficeController::class, 'resetOfficePassword'])
+        ->name('planning_office.offices.password-reset');
 
     // System
     Route::get('/notifications', [PlanningOfficeController::class, 'notifications'])->name('planning_office.notifications');

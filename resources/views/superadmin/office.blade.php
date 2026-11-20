@@ -13,6 +13,27 @@
         <div class="od-alert od-alert--error">{{ $errors->first() }}</div>
     @endif
 
+    @if(session('temporary_password'))
+        <section class="od-card" role="status">
+            <h2 class="od-card__title">One-time temporary password</h2>
+            <p class="od-card__sub">Share this securely with the office. It will not be shown again, and the office must change it at next login.</p>
+            <p><code>{{ session('temporary_password') }}</code></p>
+        </section>
+    @endif
+
+    <section class="od-card">
+        <div class="od-card__head">
+            <div>
+                <h2 class="od-card__title">Account access</h2>
+                <p class="od-card__sub">Resetting issues a one-time temporary password and requires the office to set a new one at next login.</p>
+            </div>
+            <form method="POST" action="{{ route('planning_office.offices.password-reset', $office) }}" onsubmit="return confirm('Issue a one-time temporary password for this office? Their current password will stop working immediately.')">
+                @csrf
+                <button type="submit" class="od-btn od-btn--primary">Reset password</button>
+            </form>
+        </div>
+    </section>
+
     <section class="od-stats po-stats" aria-label="Request summary">
         @foreach([
             ['Awaiting review', $statusCounts['pending'], 'pending'],

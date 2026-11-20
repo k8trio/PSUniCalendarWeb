@@ -9,6 +9,7 @@ use App\Models\FavoriteVenue;
 use App\Models\OfficeRequestHistory;
 use App\Services\EventConflictChecker;
 use App\Services\OfficeRequestHistoryService;
+use App\Services\ReportTemplateFonts;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\DB;
@@ -617,6 +618,44 @@ class OfficeController extends Controller
             ->with('success', 'Password updated successfully.');
     }
 
+    public function forcePasswordChange()
+    {
+        if (! Auth::user()->must_change_password) {
+            return redirect()->route('office.dashboard');
+        }
+
+        return view('auth.force-office-password-change');
+    }
+
+    public function updateForcedPassword(Request $request)
+    {
+        $user = Auth::user();
+
+        if (! $user->must_change_password) {
+            return redirect()->route('office.dashboard');
+        }
+
+        $validated = $request->validate([
+            'new_password' => ['required', 'confirmed', 'min:8'],
+        ]);
+
+        DB::transaction(function () use ($user, $validated): void {
+            $user->update([
+                'password' => $validated['new_password'],
+                'must_change_password' => false,
+            ]);
+
+            ActivityLog::record(
+                $user->email,
+                'password_changed',
+                'Completed required password change after administrator reset'
+            );
+        });
+
+        return redirect()->route('office.dashboard')
+            ->with('success', 'Password updated successfully.');
+    }
+
     public function exportCsv(Request $request)
     {
         $email = Auth::user()->email;
@@ -689,6 +728,7 @@ class OfficeController extends Controller
     public function downloadDetailedReport()
     {
         $office = Auth::user();
+        $templateFonts = app(ReportTemplateFonts::class)->forPdf();
         $events = EventRequest::where('email', $office->email)
             ->orderByDesc('start_datetime')
             ->get();
@@ -699,6 +739,10 @@ class OfficeController extends Controller
             'events' => $events,
             'includeOfficeColumn' => false,
             'showPostEndDetails' => false,
-        ])->setPaper('a4')->download('office-event-report-' . now()->format('Ymd-His') . '.pdf');
+            'templateFonts' => $templateFonts,
+        ])->setOption('chroot', $templateFonts['chroot'])
+            ->setOption('enable_font_subsetting', true)
+            ->setPaper([0, 0, 612, 936])
+            ->download('office-event-report-' . now()->format('Ymd-His') . '.pdf');
     }
 }

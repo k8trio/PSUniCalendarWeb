@@ -166,13 +166,18 @@ test('planning office can download a detailed PDF report for all offices', funct
 
     $response->assertOk()
         ->assertHeader('content-type', 'application/pdf');
+    $pdf = $response->getContent();
     expect($response->headers->get('content-disposition'))
         ->toMatch('/^attachment; filename=planning-office-event-report-\d{8}-\d{6}\.pdf$/')
-        ->and(substr($response->getContent(), 0, 5))->toBe('%PDF-');
+        ->and(substr($pdf, 0, 5))->toBe('%PDF-')
+        ->and($pdf)->toContain('OldEnglishTextMT')
+        ->and($pdf)->toContain('TimesNewRomanPSMT')
+        ->and(strlen($pdf))->toBeLessThan(1_000_000);
 
     $html = view('reports.event-requests', [
         'reportTitle' => 'Office Event Detailed Report',
         'officeName' => null,
+        'templateFonts' => app(\App\Services\ReportTemplateFonts::class)->forPdf(),
         'events' => collect([dashboardEvent([
             'name' => $office->name,
             'email' => $office->email,

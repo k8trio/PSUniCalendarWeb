@@ -87,6 +87,7 @@ class DatabaseSeeder extends Seeder
         }
 
         $this->call([
+            OfficeCalendarViewerAccountsSeeder::class,
             DemoOfficeEventsSeeder::class,
         ]);
     }
