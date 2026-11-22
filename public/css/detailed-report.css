@@ -8,10 +8,20 @@
     gap: 16px;
 }
 
-.report-filters {
+.report-preview-card__actions {
     display: flex;
     flex-wrap: wrap;
-    align-items: end;
+    align-items: center;
+    gap: 8px;
+}
+
+.report-preview-card__actions .report-download-button {
+    flex: 0 0 auto;
+    white-space: nowrap;
+}
+
+.report-filters {
+    display: grid;
     gap: 12px;
     margin: 0 0 20px;
     padding: 16px;
@@ -20,17 +30,38 @@
     background: #f7f8fb;
 }
 
-.report-filters label {
+.report-filters__checks {
     display: grid;
-    flex: 1 1 190px;
-    gap: 6px;
-    color: #626985;
-    font-size: 12px;
-    font-weight: 600;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 9px 16px;
+    max-height: 240px;
+    overflow-y: auto;
+    padding: 11px;
+    border: 1px solid #e1e5ef;
+    border-radius: 8px;
+    background: #fff;
 }
 
-.report-filters select {
-    width: 100%;
+.report-filters__check {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    color: #626985;
+    font-size: 12px;
+    line-height: 1.4;
+    cursor: pointer;
+}
+
+.report-filters__check input {
+    flex: none;
+    margin: 2px 0 0;
+    accent-color: #26336b;
+}
+
+.report-filters__error {
+    margin: 0;
+    color: #9b1c1c;
+    font-size: 12px;
 }
 
 .report-filters__actions {

@@ -124,6 +124,9 @@ test('planning office search shows one generic message when there are no results
 });
 
 test('planning office can download a detailed PDF report for all offices', function () {
+    Storage::fake('public');
+    Storage::disk('public')->put('event-documents/signed-memo.pdf', 'signed memo');
+
     $office = User::factory()->create([
         'name' => 'Office of Student Affairs',
         'email' => 'osa-report@psu.local',
@@ -160,7 +163,8 @@ test('planning office can download a detailed PDF report for all offices', funct
         ->assertDontSee('Annual leadership forum.')
         ->assertDontSee('Supporting documents')
         ->assertDontSee($office->email)
-        ->assertSee(route('planning_office.reports.events', ['office' => $office->id]));
+        ->assertSee('report-download-button')
+        ->assertSee(route('planning_office.reports.events', ['offices' => [$office->id]]));
 
     $response = $this->actingAs($this->planning)->get(route('planning_office.reports.events'));
 
@@ -174,45 +178,59 @@ test('planning office can download a detailed PDF report for all offices', funct
         ->and($pdf)->toContain('TimesNewRomanPSMT')
         ->and(strlen($pdf))->toBeLessThan(1_000_000);
 
+    $reportEvent = dashboardEvent([
+        'name' => $office->name,
+        'email' => $office->email,
+        'title' => 'Student Leadership Forum',
+        'event_for' => 'Student leaders',
+        'attention_to' => 'Campus directors',
+        'description' => 'Annual leadership forum.',
+        'digital_documents' => ['event-documents/signed-memo.pdf'],
+    ])->setAttribute('report_office_name', $office->name);
+
     $html = view('reports.event-requests', [
         'reportTitle' => 'Office Event Detailed Report',
         'officeName' => null,
         'templateFonts' => app(\App\Services\ReportTemplateFonts::class)->forPdf(),
-        'events' => collect([dashboardEvent([
-            'name' => $office->name,
-            'email' => $office->email,
-            'title' => 'Student Leadership Forum',
-            'event_for' => 'Student leaders',
-            'attention_to' => 'Campus directors',
-            'description' => 'Annual leadership forum.',
-            'digital_documents' => ['event-documents/signed-memo.pdf'],
-        ])->setAttribute('report_office_name', $office->name)]),
+        'events' => collect([$reportEvent]),
         'includeOfficeColumn' => true,
         'showPostEndDetails' => false,
+        'advisoryDocumentRouteName' => 'planning_office.events.documents.show',
     ])->render();
+    $advisoryUrl = route('planning_office.events.documents.show', [
+        'event' => $reportEvent,
+        'documentIndex' => 1,
+    ]);
 
-    expect($html)->toContain('<th>Event title</th><td>Student Leadership Forum</td>')
-        ->and($html)->toContain('<th>Venue</th>')
-        ->and($html)->toContain('<th>Submitted by</th><td>Office of Student Affairs</td>')
-        ->and($html)->toContain('<th>Event date</th>')
-        ->and($html)->toContain('<th>Memo</th>')
+    preg_match('/<thead>(.*?)<\/thead>/s', $html, $header);
+    $headerColumns = ['Event No.', 'Date', 'Subject', 'Advisory'];
+    $headerPositions = array_map(fn ($column) => strpos($header[1] ?? '', $column), $headerColumns);
+    $sortedHeaderPositions = $headerPositions;
+    sort($sortedHeaderPositions);
+
+    expect($headerPositions)->toBe($sortedHeaderPositions)
+        ->and($headerPositions)->not->toContain(false)
+        ->and($html)->toContain('Student Leadership Forum')
+        ->and($html)->toContain('Submitted by Office of Student Affairs')
+        ->and($html)->toContain('Main Hall')
+        ->and($html)->toContain('href="' . $advisoryUrl . '"')
+        ->and($html)->toContain('View advisory memo')
         ->and($html)->toContain('November')
         ->and($html)->not->toContain('Monday,')
         ->and($html)->not->toContain('9:00 AM')
         ->and($html)->not->toContain('<th>Start</th>')
         ->and($html)->not->toContain('<th>End</th>')
-        ->and($html)->toContain('<th>Memo</th>')
-        ->and($html)->toContain('Attached memo')
         ->and($html)->not->toContain('<th>Office</th>')
         ->and($html)->not->toContain('<th>Event scope</th>')
         ->and($html)->not->toContain('Annual leadership forum.')
         ->and($html)->not->toContain($office->email);
 });
 
-test('planning office report says Wala when the event has no attached memo', function () {
+test('planning office report shows no advisory when the event has no attachment', function () {
     $html = view('reports.event-requests', [
         'reportTitle' => 'Office Event Detailed Report',
         'officeName' => null,
+        'templateFonts' => app(\App\Services\ReportTemplateFonts::class)->forPdf(),
         'events' => collect([dashboardEvent([
             'title' => 'No memo event',
             'digital_documents' => [],
@@ -221,9 +239,50 @@ test('planning office report says Wala when the event has no attached memo', fun
         'showPostEndDetails' => false,
     ])->render();
 
-    expect($html)->toContain('<th>Memo</th>')
-        ->and($html)->toContain('None')
-        ->and($html)->not->toContain('Attached memo');
+    expect($html)->toContain('<th style="width: 25%">Advisory</th>')
+        ->and($html)->toContain('None attached')
+        ->and($html)->not->toContain('Advisory memo');
+});
+
+test('planning office detailed report links image advisory attachments', function () {
+    Storage::fake('public');
+    $memoPath = 'event-documents/advisory-photo.png';
+    Storage::disk('public')->put($memoPath, file_get_contents(public_path('images/psu-logo.png')));
+
+    $office = User::factory()->create([
+        'name' => 'Office of Student Affairs',
+        'email' => 'osa-advisory-photo@psu.local',
+        'role' => 'office',
+    ]);
+    $event = dashboardEvent([
+        'name' => $office->name,
+        'email' => $office->email,
+        'title' => 'Event with advisory photo',
+        'digital_documents' => [$memoPath],
+    ])->setAttribute('report_office_name', $office->name);
+
+    $html = view('reports.event-requests', [
+        'reportTitle' => 'Office Event Detailed Report',
+        'officeName' => null,
+        'templateFonts' => app(\App\Services\ReportTemplateFonts::class)->forPdf(),
+        'events' => collect([$event]),
+        'includeOfficeColumn' => true,
+        'showPostEndDetails' => false,
+        'advisoryDocumentRouteName' => 'planning_office.events.documents.show',
+    ])->render();
+    $advisoryUrl = route('planning_office.events.documents.show', [
+        'event' => $event,
+        'documentIndex' => 1,
+    ]);
+
+    expect($html)->toContain('href="' . $advisoryUrl . '"')
+        ->and($html)->toContain('View advisory memo')
+        ->and($html)->not->toContain('advisory-image');
+
+    $response = $this->actingAs($this->planning)->get(route('planning_office.reports.events'));
+    $response->assertOk()->assertHeader('content-type', 'application/pdf');
+    expect(substr($response->getContent(), 0, 5))->toBe('%PDF-')
+        ->and($response->getContent())->toContain($advisoryUrl);
 });
 
 test('planning office detailed report can filter by office before download', function () {
@@ -235,6 +294,11 @@ test('planning office detailed report can filter by office before download', fun
     $otherOffice = User::factory()->create([
         'name' => 'Office of the President',
         'email' => 'op-filter@psu.local',
+        'role' => 'office',
+    ]);
+    $excludedOffice = User::factory()->create([
+        'name' => 'Office of Research',
+        'email' => 'research-filter@psu.local',
         'role' => 'office',
     ]);
 
@@ -251,26 +315,35 @@ test('planning office detailed report can filter by office before download', fun
         'start_datetime' => Carbon::parse('2026-11-13 09:00:00'),
     ]);
     dashboardEvent([
+        'email' => $excludedOffice->email,
+        'name' => $excludedOffice->name,
+        'title' => 'November 2026 excluded office event',
+        'start_datetime' => Carbon::parse('2026-11-14 09:00:00'),
+    ]);
+    dashboardEvent([
         'email' => $office->email,
         'name' => $office->name,
         'title' => 'November 2025 other year event',
         'start_datetime' => Carbon::parse('2025-11-12 09:00:00'),
     ]);
 
-    $filters = ['office' => $office->id];
+    $filters = ['offices' => [$office->id, $otherOffice->id]];
+    $downloadFilters = ['offices' => [$office->id, $otherOffice->id]];
     $preview = $this->actingAs($this->planning)
         ->get(route('planning_office.reports.events.preview', $filters));
     $preview->assertOk()
         ->assertSee('November 2026 selected event')
+        ->assertSee('November 2026 other office event')
         ->assertSee('November 2025 other year event')
-        ->assertDontSee('November 2026 other office event')
-        ->assertSee(route('planning_office.reports.events', $filters))
+        ->assertDontSee('November 2026 excluded office event')
+        ->assertSee('2 offices selected')
+        ->assertSee(route('planning_office.reports.events', $downloadFilters))
         ->assertDontSee('name="year"', false)
         ->assertDontSee('name="month"', false)
         ->assertSee('Select all');
 
     $pdf = $this->actingAs($this->planning)
-        ->get(route('planning_office.reports.events', $filters));
+        ->get(route('planning_office.reports.events', $downloadFilters));
     $pdf->assertOk()
         ->assertHeader('content-type', 'application/pdf');
     expect(substr($pdf->getContent(), 0, 5))->toBe('%PDF-');
@@ -307,14 +380,18 @@ test('planning office detailed report lists campus offices at the end and filter
         ->assertSee('Event from Alaminos Campus')
         ->assertSee('Event from Binmaley Campus')
         ->assertSee('Event from Lingayen Campus');
-    preg_match('/<select name="office".*?<\/select>/s', $response->getContent(), $officeSelect);
-    expect($officeSelect[0])->not->toContain('Other offices');
+    preg_match('/<div class="report-filters__checks">(.*?)<\/div>/s', $response->getContent(), $officeChecklist);
+    expect($officeChecklist[0])
+        ->not->toContain('All offices')
+        ->not->toContain('Other offices');
+    $response->assertSee('Download PDF')
+        ->assertSee('Back to dashboard');
 
-    $optionOrder = [];
+    $checkboxOrder = [];
     foreach ($campusOffices as $office) {
-        $option = '<option value="' . $office->id . '"';
-        expect($officeSelect[0])->toContain($option);
-        $optionOrder[] = strpos($officeSelect[0], $option);
+        $checkbox = 'value="' . $office->id . '"';
+        expect($officeChecklist[0])->toContain($checkbox);
+        $checkboxOrder[] = strpos($officeChecklist[0], $checkbox);
 
         $filtered = $this->get(route('planning_office.reports.events.preview', ['office' => $office->id]))
             ->assertOk()
@@ -325,11 +402,14 @@ test('planning office detailed report lists campus offices at the end and filter
         }
     }
 
-    expect($optionOrder)->toBe(array_values($optionOrder));
-    $universityOfficeOption = strpos($officeSelect[0], '<option value="' . $selectableOffice->id . '"');
-    expect($universityOfficeOption)->toBeLessThan($optionOrder[0])
-        ->and($optionOrder[0])->toBeLessThan($optionOrder[1])
-        ->and($optionOrder[1])->toBeLessThan($optionOrder[2]);
+    expect($checkboxOrder)->toBe(array_values($checkboxOrder));
+    $universityOfficeCheckbox = strpos(
+        $officeChecklist[0],
+        'value="' . $selectableOffice->id . '"'
+    );
+    expect($universityOfficeCheckbox)->toBeLessThan($checkboxOrder[0])
+        ->and($checkboxOrder[0])->toBeLessThan($checkboxOrder[1])
+        ->and($checkboxOrder[1])->toBeLessThan($checkboxOrder[2]);
 });
 
 test('detailed report includes unassigned events in all offices without an other offices option', function () {
@@ -346,6 +426,12 @@ test('detailed report includes unassigned events in all offices without an other
 
     $this->get(route('planning_office.reports.events.preview', ['office' => 'other']))
         ->assertSessionHasErrors('office');
+
+    $this->get(route('planning_office.reports.events.preview', ['filter_applied' => 1]))
+        ->assertOk()
+        ->assertSee('Select one or more offices, or click Select all.')
+        ->assertDontSee('report-download-button')
+        ->assertDontSee('Unassigned office event');
 });
 
 test('office account details show approved events scheduled in the academic year', function () {
@@ -371,8 +457,10 @@ test('office account details show approved events scheduled in the academic year
     $response = $this->actingAs($this->planning)
         ->get("/planning-office/offices/{$office->id}")
         ->assertOk()
-        ->assertSee('Approved events · Academic Year 2026-2027')
+        ->assertSee('Events · Academic Year 2026-2027')
         ->assertSee('Academic Year Approved Event');
+    preg_match('/<section class="od-card po-academic-year-events">(.*?)<\/section>/s', $response->getContent(), $academicYearSection);
+    expect($academicYearSection[1] ?? '')->not->toContain('od-badge--approved');
 
     expect($response->viewData('approvedAcademicYearEvents')->pluck('title')->all())
         ->toBe(['Academic Year Approved Event']);

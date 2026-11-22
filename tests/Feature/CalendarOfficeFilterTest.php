@@ -146,6 +146,17 @@ test('office calendar event details include accessible advisory memo attachments
         'status' => 'approved',
         'digital_documents' => ['event-documents/signed-advisory.pdf'],
     ]);
+    $ownPendingEvent = EventRequest::create([
+        'name' => $office->name,
+        'email' => $office->email,
+        'title' => 'Own pending event',
+        'venue_name' => 'Lingayen Hall',
+        'campus' => 'Lingayen Campus',
+        'start_datetime' => now()->addDays(3),
+        'end_datetime' => now()->addDays(3)->addHour(),
+        'status' => 'pending',
+        'digital_documents' => ['event-documents/signed-advisory.pdf'],
+    ]);
 
     $response = $this->actingAs($office)->get('/office')->assertOk();
     $events = $response->viewData('events');
@@ -162,6 +173,18 @@ test('office calendar event details include accessible advisory memo attachments
         ->assertHeader('content-disposition', 'inline; filename=signed-advisory.pdf');
     $this->get(route('office.events.documents.show', ['event' => $hiddenEvent, 'documentIndex' => 1]))
         ->assertNotFound();
+    $this->get(route('office.events.documents.show', ['event' => $ownPendingEvent, 'documentIndex' => 1]))
+        ->assertOk()
+        ->assertHeader('content-disposition', 'inline; filename=signed-advisory.pdf');
+
+    $report = $this->get(route('office.requests.report'))
+        ->assertOk()
+        ->assertHeader('content-type', 'application/pdf');
+    $ownPendingMemoUrl = route('office.events.documents.show', [
+        'event' => $ownPendingEvent,
+        'documentIndex' => 1,
+    ]);
+    expect($report->getContent())->toContain($ownPendingMemoUrl);
 });
 
 test('office can download a detailed PDF containing only its event requests', function () {
@@ -240,4 +263,17 @@ test('office detailed PDF uses the supplied Word template fonts and logo sizes',
         ->and($pdf)->toContain('/Height 396')
         ->and($pdf)->toContain('/SMask')
         ->and(strlen($pdf))->toBeLessThan(1_000_000);
+});
+
+test('office report places download beside back to dashboard', function () {
+    $office = User::factory()->create(['role' => 'office']);
+
+    $preview = $this->actingAs($office)
+        ->get(route('office.requests.report.preview'))
+        ->assertOk();
+
+    preg_match('/<div class="report-preview-card__actions">(.*?)<\/div>/s', $preview->getContent(), $reportActions);
+    expect($reportActions[1] ?? '')
+        ->toContain('Download PDF')
+        ->toContain('Back to dashboard');
 });

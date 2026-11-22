@@ -189,7 +189,9 @@ class OfficeController extends Controller
 
     public function eventDocument(EventRequest $event, int $documentIndex)
     {
-        abort_unless($event->status === 'approved' && $event->isVisibleTo(Auth::user()), 404);
+        $user = Auth::user();
+        $isOwnRequest = $event->email === $user->email;
+        abort_unless($isOwnRequest || ($event->status === 'approved' && $event->isVisibleTo($user)), 404);
 
         $documents = $event->digital_documents ?? [];
         abort_unless($documentIndex >= 1 && isset($documents[$documentIndex - 1]), 404);
@@ -740,6 +742,7 @@ class OfficeController extends Controller
             'includeOfficeColumn' => false,
             'showPostEndDetails' => false,
             'templateFonts' => $templateFonts,
+            'advisoryDocumentRouteName' => 'office.events.documents.show',
         ])->setOption('chroot', $templateFonts['chroot'])
             ->setOption('enable_font_subsetting', true)
             ->setPaper([0, 0, 612, 936])

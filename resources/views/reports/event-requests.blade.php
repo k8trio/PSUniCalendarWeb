@@ -22,18 +22,19 @@
         .report-letterfoot__banner { position: absolute; bottom: 0; left: 0; width: 100%; height: auto; }
         .report-letterfoot__logos { position: absolute; right: 31.2pt; bottom: 62px; width: 328.8pt; height: 19.55pt; }
         h1 { margin: 0 0 5px; color: #26336b; font-size: 20px; }
-        .report-meta { margin-bottom: 20px; color: #626985; font-size: 10px; }
-        .event { margin: 0 0 4px; border: 1px solid #dfe3ed; border-radius: 5px; }
-        .event-heading { padding: 6px 9px; border-bottom: 1px solid #dfe3ed; background: #f3f5fa; page-break-after: avoid; }
-        h2 { margin: 0; color: #26336b; font-size: 12px; }
-        .event-number { float: right; color: #626985; font-size: 9px; font-weight: normal; }
-        table { width: 100%; border-collapse: collapse; }
-        th, td { padding: 4px 7px; border-bottom: 1px solid #edf0f5; text-align: left; vertical-align: top; }
-        tr { page-break-inside: avoid; }
-        tr:last-child th, tr:last-child td { border-bottom: 0; }
-        th { width: 23%; color: #626985; font-weight: bold; }
-        td { white-space: pre-wrap; overflow-wrap: anywhere; }
-        .event--compact td { white-space: normal; }
+        .report-meta { margin-bottom: 18px; color: #626985; font-size: 10px; }
+        .event-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+        .event-table thead { display: table-header-group; }
+        .event-table th, .event-table td { padding: 7px 8px; border: 1px solid #dfe3ed; text-align: left; vertical-align: top; }
+        .event-table th { background: #f3f5fa; color: #26336b; font-weight: bold; }
+        .event-table tr { page-break-inside: avoid; }
+        .event-table tbody tr:nth-child(even) { background: #fafbfe; }
+        .event-number { color: #626985; white-space: nowrap; }
+        .subject-title { color: #20243a; font-weight: bold; }
+        .subject-detail { display: block; margin-top: 3px; color: #626985; font-size: 9px; }
+        .advisory-link { display: block; color: #174ea6; text-decoration: underline; overflow-wrap: anywhere; }
+        .advisory-link + .advisory-link { margin-top: 4px; }
+        .advisory-unavailable { display: block; color: #626985; overflow-wrap: anywhere; }
         .empty { padding: 18px; border: 1px solid #dfe3ed; color: #626985; text-align: center; }
         .footer { margin-top: 18px; color: #7a8095; font-size: 8px; text-align: right; }
     </style>
@@ -51,62 +52,64 @@
         Generated {{ now()->format('F j, Y g:i A') }} · {{ $events->count() }} event request(s)
     </p>
 
-    @forelse($events as $index => $event)
-        <section class="event {{ $showPostEndDetails ? '' : 'event--compact' }}">
-            <header class="event-heading">
-                <h2>{{ $event->title ?: 'Untitled event' }}</h2>
-            </header>
-            <table>
-                <tbody>
-                    <tr><th>Event title</th><td>{{ $event->title ?: '—' }}</td></tr>
-                    <tr><th>Venue</th><td>{{ $event->venue_name ?: '—' }}</td></tr>
-                    @unless($showPostEndDetails)
-                        <tr><th>Submitted by</th><td>{{ $event->name ?: '—' }}</td></tr>
-                        <tr>
-                            <th>Memo</th>
-                            <td>{{ count($event->digital_documents ?? []) > 0 ? 'Attached memo' : 'None' }}</td>
-                        </tr>
-                    @endunless
-                    @if($showPostEndDetails)
-                        <tr><th>Office</th><td>{{ $includeOfficeColumn ? $event->report_office_name : $officeName }}</td></tr>
-                        <tr><th>Submitted by</th><td>{{ $event->name ?: '—' }}</td></tr>
-                        <tr><th>For (Offices/Officials)</th><td>{{ $event->event_for ?: '—' }}</td></tr>
-                        <tr><th>Attention (Persons/Units)</th><td>{{ $event->attention_to ?: '—' }}</td></tr>
-                        <tr><th>Campus</th><td>{{ $event->venueCampus() }}</td></tr>
-                        <tr><th>Event scope</th><td>{{ \App\Services\PlanningOfficeDashboard::scopeLabel($event->scope()) }}</td></tr>
-                    @endif
-                    @unless($showPostEndDetails)
-                        <tr>
-                            <th>Event date</th>
-                            <td>{{ ($event->start_datetime?->format('F j, Y') ?: 'Not specified') . ' – ' . ($event->end_datetime?->format('F j, Y') ?: 'Not specified') }}</td>
-                        </tr>
-                    @else
-                        <tr><th>Start</th><td>{{ $event->start_datetime?->format('l, F j, Y · g:i A') ?: 'Not specified' }}</td></tr>
-                        <tr><th>End</th><td>{{ $event->end_datetime?->format('l, F j, Y · g:i A') ?: 'Not specified' }}</td></tr>
-                    @endunless
-                    @if($showPostEndDetails)
-                        <tr><th>Description</th><td>{{ $event->description ?: 'No event description provided.' }}</td></tr>
-                        <tr><th>Status</th><td>{{ \App\Models\EventRequest::statusLabel($event->status) }}</td></tr>
-                        <tr><th>Planning Office note</th><td>{{ $event->planning_note ?: '—' }}</td></tr>
-                    @endif
-                    @if($showPostEndDetails)
-                        <tr>
-                            <th>Supporting documents</th>
-                            <td>
-                                @forelse($event->digital_documents ?? [] as $document)
-                                    {{ basename($document) }}@unless($loop->last), @endunless
-                                @empty
-                                    None attached
-                                @endforelse
-                            </td>
-                        </tr>
-                    @endif
-                </tbody>
-            </table>
-        </section>
-    @empty
+    @if($events->isEmpty())
         <p class="empty">No event requests were found.</p>
-    @endforelse
+    @else
+        <table class="event-table">
+            <thead>
+                <tr>
+                    <th style="width: 10%">Event No.</th>
+                    <th style="width: 17%">Date</th>
+                    <th style="width: 48%">Subject</th>
+                    <th style="width: 25%">Advisory</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach($events as $event)
+                    <tr>
+                        <td class="event-number">#{{ $event->id }}</td>
+                        <td>
+                            {{ $event->start_datetime?->format('F j, Y') ?: 'Not specified' }}
+                            @if($event->end_datetime && $event->end_datetime->format('Y-m-d') !== $event->start_datetime?->format('Y-m-d'))
+                                <br>to {{ $event->end_datetime->format('F j, Y') }}
+                            @endif
+                        </td>
+                        <td>
+                            <span class="subject-title">{{ $event->title ?: 'Untitled event' }}</span>
+                            <span class="subject-detail">
+                                {{ $includeOfficeColumn ? ($event->report_office_name ?: $event->name ?: 'Unknown office') : ($officeName ?: $event->name ?: 'Unknown office') }}
+                                · Submitted by {{ $event->name ?: 'Not specified' }}
+                                · {{ $event->venue_name ?: 'Venue not specified' }}
+                            </span>
+                        </td>
+                        <td>
+                            @forelse($event->digital_documents ?? [] as $document)
+                                @php
+                                    $isEventDocument = is_string($document)
+                                        && str_starts_with($document, 'event-documents/')
+                                        && basename($document) === substr($document, strlen('event-documents/'));
+                                    $documentExists = $isEventDocument
+                                        && \Illuminate\Support\Facades\Storage::disk('public')->exists($document);
+                                @endphp
+                                @if($documentExists)
+                                    <a
+                                        class="advisory-link"
+                                        href="{{ route($advisoryDocumentRouteName, ['event' => $event, 'documentIndex' => $loop->iteration]) }}"
+                                    >View advisory memo {{ count($event->digital_documents) > 1 ? $loop->iteration : '' }}</a>
+                                @else
+                                    <span class="advisory-unavailable">
+                                        {{ is_string($document) ? 'Attachment unavailable: ' . basename($document) : 'Invalid advisory attachment' }}
+                                    </span>
+                                @endif
+                            @empty
+                                None attached
+                            @endforelse
+                        </td>
+                    </tr>
+                @endforeach
+            </tbody>
+        </table>
+    @endif
 
     <p class="footer">UniCalendar · {{ now()->format('F j, Y') }}</p>
 </body>

@@ -23,16 +23,16 @@
                         <p class="od-topbar__sub">Review your office event requests before downloading the PDF.</p>
                     </div>
                 </div>
-                <div class="od-topbar__actions">
-                    <a href="{{ route('office.dashboard') }}" class="od-btn od-btn--ghost od-btn--sm">Back to dashboard</a>
-                    <a href="{{ route('office.requests.report') }}" class="od-btn od-btn--primary od-btn--sm">Download PDF</a>
-                </div>
             </header>
             <section class="od-card report-preview-card">
                 <div class="od-card__head">
                     <div>
                         <h2 class="od-card__title">{{ $reportTitle }}</h2>
                         <p class="od-card__sub">Review your office event requests before downloading the PDF.</p>
+                    </div>
+                    <div class="report-preview-card__actions">
+                        <a href="{{ route('office.requests.report') }}" class="od-btn od-btn--primary od-btn--sm report-download-button">Download PDF</a>
+                        <a href="{{ route('office.dashboard') }}" class="od-btn od-btn--ghost od-btn--sm">Back to dashboard</a>
                     </div>
                 </div>
                 @include('reports.event-requests-preview')

@@ -66,14 +66,30 @@ class PlanningOfficeController extends Controller
                     ->sortBy(fn (User $office) => array_search($office->campus, User::MAIN_CAMPUSES, true))
             )
             ->values();
+        $validOfficeIds = $reportOffices->pluck('id')->map(fn ($id) => (string) $id)->all();
         $filters = $request->validate([
-            'office' => ['nullable', Rule::in($reportOffices->pluck('id')->map(fn ($id) => (string) $id)->all())],
+            'all_offices' => ['nullable', 'boolean'],
+            'filter_applied' => ['nullable', 'boolean'],
+            'offices' => ['nullable', 'array'],
+            'offices.*' => ['required', Rule::in($validOfficeIds)],
+            'office' => ['nullable', Rule::in($validOfficeIds)],
         ]);
 
+        $selectedOfficeIds = $filters['offices'] ?? [];
+        if ($selectedOfficeIds === [] && ! empty($filters['office'])) {
+            $selectedOfficeIds = [(string) $filters['office']];
+        }
+
+        $allOffices = array_key_exists('all_offices', $filters)
+            ? (bool) $filters['all_offices']
+            : (! $request->boolean('filter_applied') && $selectedOfficeIds === []);
+
+        $selectedOffices = $reportOffices
+            ->whereIn('id', array_map('intval', $selectedOfficeIds))
+            ->values();
         $query = EventRequest::query();
-        if (! empty($filters['office'])) {
-            $selectedOffice = $reportOffices->firstWhere('id', (int) $filters['office']);
-            $query->where('email', $selectedOffice->email);
+        if (! $allOffices) {
+            $query->whereIn('email', $selectedOffices->pluck('email'));
         }
 
         $events = $query
@@ -88,10 +104,19 @@ class PlanningOfficeController extends Controller
             );
         });
 
-        $reportFilters = ['office' => $filters['office'] ?? ''];
-        $selectedOfficeName = $reportFilters['office']
-            ? $reportOffices->firstWhere('id', (int) $reportFilters['office'])?->name
-            : 'All offices';
+        $reportFilters = [
+            'all_offices' => $allOffices,
+            'offices' => $allOffices ? [] : $selectedOffices->pluck('id')->map(fn ($id) => (string) $id)->all(),
+        ];
+        if ($allOffices) {
+            $selectedOfficeName = 'All offices';
+        } elseif ($selectedOffices->isEmpty()) {
+            $selectedOfficeName = 'No offices selected';
+        } elseif ($selectedOffices->count() === 1) {
+            $selectedOfficeName = $selectedOffices->first()->name;
+        } else {
+            $selectedOfficeName = $selectedOffices->count() . ' offices selected';
+        }
 
         return [
             'reportTitle' => 'Office Event Detailed Report',
@@ -99,9 +124,13 @@ class PlanningOfficeController extends Controller
             'events' => $events,
             'includeOfficeColumn' => true,
             'showPostEndDetails' => false,
+            'advisoryDocumentRouteName' => 'planning_office.events.documents.show',
             'reportOffices' => $reportOffices,
             'reportFilters' => $reportFilters,
             'reportFilterLabel' => $selectedOfficeName,
+            'filterError' => ! $allOffices && $selectedOffices->isEmpty()
+                ? 'Select one or more offices, or click Select all.'
+                : null,
         ];
     }
 
