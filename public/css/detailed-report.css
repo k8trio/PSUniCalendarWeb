@@ -43,9 +43,10 @@
 }
 
 .report-filters__check {
-    display: flex;
-    align-items: flex-start;
-    gap: 8px;
+    display: grid;
+    grid-template-columns: 16px minmax(0, 1fr);
+    align-items: start;
+    column-gap: 8px;
     color: #626985;
     font-size: 12px;
     line-height: 1.4;
@@ -53,9 +54,14 @@
 }
 
 .report-filters__check input {
-    flex: none;
-    margin: 2px 0 0;
+    width: 16px;
+    height: 16px;
+    margin: 1px 0 0;
     accent-color: #26336b;
+}
+
+.report-filters__check span {
+    min-width: 0;
 }
 
 .report-filters__error {
