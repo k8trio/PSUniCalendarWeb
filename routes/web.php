@@ -7,6 +7,7 @@ use App\Http\Controllers\PlanningOfficeController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\OfficeController;
 use App\Http\Controllers\OfficeCalendarViewerController;
+use App\Http\Controllers\ParentOfficeModuleController;
 use App\Http\Controllers\PlanningDecisionHistoryController;
 use App\Http\Controllers\StaffAuthController;
 
@@ -26,6 +27,8 @@ Route::middleware(['auth', 'role:office_viewer'])->prefix('office/calendar-view'
     Route::get('/events/{event}/documents/{documentIndex}', [OfficeCalendarViewerController::class, 'eventDocument'])
         ->whereNumber('documentIndex')
         ->name('office.viewer-calendar.documents.show');
+    Route::post('/notifications/read', [OfficeCalendarViewerController::class, 'markNotificationsRead'])
+        ->name('office.viewer-calendar.notifications.read');
     Route::post('/logout', [StaffAuthController::class, 'logout'])->name('office.viewer-calendar.logout');
 });
 
@@ -36,6 +39,8 @@ Route::middleware(['auth', 'role:office'])->group(function () {
 
 Route::middleware(['auth', 'role:office', 'office.password.change_required'])->prefix('office')->group(function () {
     Route::get('/', [OfficeController::class, 'dashboard'])->name('office.dashboard');
+    Route::get('/sub-offices', [ParentOfficeModuleController::class, 'index'])->name('office.sub-offices');
+    Route::post('/sub-offices/meetings', [ParentOfficeModuleController::class, 'store'])->name('office.sub-offices.meetings.store');
     Route::get('/add-event', [OfficeController::class, 'addEvent'])->name('office.add-event');
     Route::get('/request-status', [OfficeController::class, 'requestStatus'])->name('office.request-status');
     Route::get('/recent-activity', [OfficeController::class, 'recentActivity'])->name('office.recent-activity');
@@ -47,21 +52,13 @@ Route::middleware(['auth', 'role:office', 'office.password.change_required'])->p
     Route::post('/requests/undo', [OfficeController::class, 'undoRequest'])->name('office.requests.undo');
     Route::post('/requests/redo', [OfficeController::class, 'redoRequest'])->name('office.requests.redo');
     Route::get('/check-availability', [OfficeController::class, 'checkAvailability'])->name('office.availability');
-
-    // Quick actions / shortcuts
     Route::get('/requests/{id}/duplicate', [OfficeController::class, 'duplicateRequest'])->name('office.requests.duplicate');
     Route::get('/requests/{id}/edit', [OfficeController::class, 'editRequestForm'])->name('office.requests.edit');
     Route::post('/requests/{id}/cancel', [OfficeController::class, 'cancelRequest'])->name('office.requests.cancel');
     Route::delete('/requests/{id}', [OfficeController::class, 'deleteCancelledRequest'])->name('office.requests.delete');
     Route::post('/favorite-venues', [OfficeController::class, 'toggleFavoriteVenue'])->name('office.favorite-venues.toggle');
-
-    // Notifications
     Route::post('/notifications/read', [OfficeController::class, 'markNotificationsRead'])->name('office.notifications.read');
-
-    // Reporting
     Route::get('/requests/export', [OfficeController::class, 'exportCsv'])->name('office.requests.export');
-
-    // Profile
     Route::patch('/profile', [OfficeController::class, 'updateProfile'])->name('office.profile.update');
     Route::patch('/change-password', [OfficeController::class, 'changePassword'])->name('office.password.update');
 });
@@ -90,14 +87,9 @@ Route::middleware(['auth', 'role:planning_office'])->prefix('planning-office')->
     Route::put('/manage-venues/{venue}', [PlanningOfficeController::class, 'updateVenue'])->name('planning_office.venues.update');
     Route::delete('/manage-venues/{venue}', [PlanningOfficeController::class, 'destroyVenue'])->name('planning_office.venues.destroy');
     Route::get('/manage-venues/{venue}', [PlanningOfficeController::class, 'venueEvents'])->name('planning_office.venues.events');
-
-    // Offices (grouped by campus in the sidebar)
     Route::get('/offices/{office}', [PlanningOfficeController::class, 'showOffice'])->name('planning_office.offices.show');
     Route::patch('/offices/{office}/campus', [PlanningOfficeController::class, 'updateOfficeCampus'])->name('planning_office.offices.campus');
-    Route::post('/offices/{office}/password-reset', [PlanningOfficeController::class, 'resetOfficePassword'])
-        ->name('planning_office.offices.password-reset');
-
-    // System
+    Route::post('/offices/{office}/password-reset', [PlanningOfficeController::class, 'resetOfficePassword'])->name('planning_office.offices.password-reset');
     Route::get('/notifications', [PlanningOfficeController::class, 'notifications'])->name('planning_office.notifications');
     Route::get('/settings', [PlanningOfficeController::class, 'settings'])->name('planning_office.settings');
     Route::patch('/settings/profile', [PlanningOfficeController::class, 'updateSettingsProfile'])->name('planning_office.settings.profile');
