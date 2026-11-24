@@ -105,6 +105,45 @@ a.od-icon-btn { text-decoration: none; }
 .po-global-search svg { width: 18px; height: 18px; }
 .po-topbar-back svg { width: 15px; height: 15px; }
 
+.po-add-event {
+    width: 34px;
+    min-width: 34px;
+    height: 34px;
+    flex: 0 0 34px;
+    padding: 0;
+    gap: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    transition: width .18s ease, padding .18s ease, gap .18s ease, background .15s, border-color .15s, box-shadow .15s;
+}
+.po-add-event__icon { width: 18px; height: 18px; flex: 0 0 18px; }
+.po-add-event__label {
+    max-width: 0;
+    overflow: hidden;
+    opacity: 0;
+    transition: max-width .18s ease, opacity .12s ease;
+}
+.po-add-event:hover,
+.po-add-event:focus-visible {
+    width: 132px;
+    flex-basis: 132px;
+    padding: 6px 10px;
+    gap: 8px;
+}
+.po-add-event:hover .po-add-event__label,
+.po-add-event:focus-visible .po-add-event__label {
+    max-width: 76px;
+    opacity: 1;
+}
+@media (hover: none) {
+    .po-add-event { width: auto; flex: 0 0 auto; padding: 6px 12px; gap: 8px; }
+    .po-add-event__label { max-width: 76px; opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .po-add-event,
+    .po-add-event__label { transition: none; }
+}
+
 /* Danger button */
 .od-btn--danger { border-color: #fecdd3; background: var(--surface); color: var(--rejected); }
 .od-btn--danger:hover { background: #fff1f2; }

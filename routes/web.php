@@ -73,6 +73,8 @@ Route::post('/planning-office/logout', [StaffAuthController::class, 'logout'])->
 Route::middleware(['auth', 'role:planning_office'])->prefix('planning-office')->group(function () {
     Route::get('/', [PlanningOfficeController::class, 'dashboard'])->name('planning_office.dashboard');
     Route::get('/calendar', [PlanningOfficeController::class, 'dashboard'])->name('planning_office.calendar');
+    Route::get('/add-event', [PlanningOfficeController::class, 'addEvent'])->name('planning_office.add-event');
+    Route::post('/add-event', [PlanningOfficeController::class, 'storeEvent'])->name('planning_office.events.store');
     Route::get('/reports/detailed-events', [PlanningOfficeController::class, 'detailedReport'])->name('planning_office.reports.events.preview');
     Route::get('/reports/detailed-events.pdf', [PlanningOfficeController::class, 'downloadDetailedReport'])->name('planning_office.reports.events');
     Route::get('/archive', [PlanningOfficeController::class, 'archive'])->name('planning_office.archive');

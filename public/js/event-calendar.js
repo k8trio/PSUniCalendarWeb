@@ -3,10 +3,9 @@
  *
  * Used by the public calendar, the Office dashboard, the Admin dashboard and the
  * Planning Office dashboard. It:
- *   - shows each event's start time and title on its start date only
- *     (multi-day events are not drawn across the following days),
+ *   - shows events across all dates they cover,
  *   - opens a details window when an event is clicked (with the full start and end),
- *   - lists the events that start on a clicked day.
+ *   - lists events that occur on a clicked day, including multi-day events.
  *
  * Times: the app stores dates exactly as they were typed (e.g. 8:00 AM) but Laravel
  * serialises them as UTC. Everything here is therefore displayed in UTC so the
@@ -208,15 +207,11 @@
             return allEvents.filter(function (ev) { return ev.office_filter === office; });
         }
 
-        // Events are drawn on their start date only: the bar is cut off at the end of
-        // that day. The real end date/time is still shown in the details window.
         function toFc(ev) {
-            var s = span(ev);
-            var endOfStartDay = s.startKey + 'T23:59:59Z';
             var fcEvent = {
                 title: ev.title || 'Untitled event',
                 start: ev.start,
-                end: s.totalDays > 1 ? endOfStartDay : (ev.end || ev.start),
+                end: ev.end || ev.start,
                 extendedProps: { raw: ev }
             };
             // Optional per-event look (e.g. Planning Office: pending / conflict / university-wide)
@@ -225,10 +220,11 @@
             return fcEvent;
         }
 
-        // Same rule as the calendar: an event belongs to its start date
-        function eventsStartingOn(key) {
+        function eventsOn(key) {
             return filtered().filter(function (ev) {
-                return ev.start && span(ev).startKey === key;
+                if (!ev.start) return false;
+                var dates = span(ev);
+                return dates.startKey <= key && dates.endKey >= key;
             });
         }
 
@@ -248,7 +244,7 @@
             selectedKey = key;
             if (!opts.listEl) return;
 
-            var matches = eventsStartingOn(key);
+            var matches = eventsOn(key);
 
             if (opts.listLabelEl) {
                 opts.listLabelEl.textContent = 'Events for ' + fmt(keyToDate(key), { month: 'long', day: 'numeric', year: 'numeric' });
@@ -325,7 +321,7 @@
 
                 // No "Events for <date>" panel on this page: open the day's event(s) directly
                 if (!opts.listEl) {
-                    var dayEvents = eventsStartingOn(key);
+                    var dayEvents = eventsOn(key);
                     if (dayEvents.length === 1) openModal(dayEvents[0]);
                     else if (dayEvents.length > 1) openDayModal(key, dayEvents);
                     return;

@@ -36,6 +36,10 @@ class OfficeRequestHistoryService
                 ? $value->format('Y-m-d H:i:s')
                 : $value;
         }
+        $snapshot['notify_offices'] = $event->recipients()
+            ->orderBy('users.id')
+            ->pluck('users.id')
+            ->all();
 
         ksort($snapshot);
 
@@ -156,6 +160,8 @@ class OfficeRequestHistoryService
 
     private function snapshotsMatch(array $actual, array $expected): bool
     {
+        $actual['notify_offices'] ??= [];
+        $expected['notify_offices'] ??= [];
         ksort($actual);
         ksort($expected);
 
@@ -164,6 +170,9 @@ class OfficeRequestHistoryService
 
     private function restore(EventRequest $event, array $data): void
     {
+        $recipientIds = $data['notify_offices'] ?? [];
+        unset($data['notify_offices']);
         $event->forceFill($data)->save();
+        $event->recipients()->sync($recipientIds);
     }
 }

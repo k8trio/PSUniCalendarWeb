@@ -99,6 +99,25 @@ test('office can undo and redo an edit and a cancellation through the command en
     expect($event->refresh()->status)->toBe('cancelled');
 });
 
+test('office can undo and redo changes to notified event recipients', function () {
+    $firstRecipient = User::factory()->create(['role' => 'office']);
+    $secondRecipient = User::factory()->create(['role' => 'office']);
+    $event = keyboardUndoRedoEvent();
+    $event->recipients()->attach($firstRecipient->id);
+
+    $this->actingAs($this->office)
+        ->post(route('office.request'), keyboardUndoRedoRequestData([
+            'edit_id' => $event->id,
+            'notify_offices' => [$secondRecipient->id],
+        ]));
+
+    $this->post(route('office.requests.undo'))->assertSessionHas('success');
+    expect($event->recipients()->pluck('users.id')->all())->toBe([$firstRecipient->id]);
+
+    $this->post(route('office.requests.redo'))->assertSessionHas('success');
+    expect($event->recipients()->pluck('users.id')->all())->toBe([$secondRecipient->id]);
+});
+
 test('undo history stays scoped to its office and rejects requests changed by Planning', function () {
     $event = keyboardUndoRedoEvent();
     $otherOffice = User::factory()->create(['role' => 'office']);

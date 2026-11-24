@@ -152,8 +152,12 @@
                                     <button type="button" class="od-dropdown__item {{ $n->read_at ? '' : 'od-dropdown__item--unread' }}" data-open-notifications="{{ $n->id }}">
                                         <p class="od-dropdown__item-title">{{ $n->title }}</p>
                                         <p class="od-dropdown__item-meta">
-                                            Status changed to
-                                            <span class="od-text-{{ $n->status }}">{{ mb_strtolower($statusLabel($n->status)) }}</span>
+                                            @if($n->kind === 'added')
+                                                Event added to your calendar
+                                            @else
+                                                Status changed to
+                                                <span class="od-text-{{ $n->status }}">{{ mb_strtolower($statusLabel($n->status)) }}</span>
+                                            @endif
                                             · {{ $n->updated_at?->diffForHumans() }}
                                         </p>
                                         @if($n->planning_note)
@@ -328,6 +332,23 @@
                                     <small>Visible to all university offices and campuses (e.g. University Meet, Executive Meeting).</small>
                                 </span>
                             </label>
+                        </div>
+                    </fieldset>
+
+                    <fieldset class="od-audience" data-notify-offices>
+                        <legend class="od-label">Notify offices when approved</legend>
+                        <p class="od-hint">Selected offices will be notified after approval and see the event on their calendar.</p>
+                        <div class="od-audience__options">
+                            <label class="od-audience__option">
+                                <input type="checkbox" data-notify-all />
+                                <span><strong>All offices</strong><small>Notify every office account.</small></span>
+                            </label>
+                            @foreach($offices as $office)
+                                <label class="od-audience__option">
+                                    <input type="checkbox" name="notify_offices[]" value="{{ $office->id }}" data-notify-office {{ in_array((string) $office->id, array_map('strval', (array) old('notify_offices', [])), true) ? 'checked' : '' }} />
+                                    <span><strong>{{ $office->name }}</strong><small>{{ $office->email }}</small></span>
+                                </label>
+                            @endforeach
                         </div>
                     </fieldset>
 
@@ -513,10 +534,14 @@
                         <li id="notification-{{ $n->id }}" class="od-notif {{ $n->read_at ? '' : 'od-notif--unread' }}">
                             <div class="od-notif__top">
                                 <p class="od-notif__title">{{ $n->title }}</p>
-                                <span class="od-badge od-badge--{{ $n->status }}">{{ $statusLabel($n->status) }}</span>
+                                <span class="od-badge od-badge--{{ $n->status }}">{{ $n->kind === 'added' ? 'Added to calendar' : $statusLabel($n->status) }}</span>
                             </div>
                             <p class="od-notif__meta">
-                                The Planning Office {{ ['conflict' => 'flagged a schedule conflict on', 'returned' => 'returned for revision'][$n->status] ?? $n->status }} this request
+                                @if($n->kind === 'added')
+                                    The Planning Office added this event to your calendar
+                                @else
+                                    The Planning Office {{ ['conflict' => 'flagged a schedule conflict on', 'returned' => 'returned for revision'][$n->status] ?? $n->status }} this request
+                                @endif
                                 · <time datetime="{{ $n->updated_at?->toIso8601String() }}" title="{{ $n->updated_at?->format('M j, Y g:i A') }}">{{ $n->updated_at?->diffForHumans() }}</time>
                             </p>
                             <p class="od-notif__event">
@@ -531,7 +556,7 @@
                             @endif
                         </li>
                     @empty
-                        <li class="od-empty">No notifications yet. You'll be notified here when the Planning Office approves or rejects a request.</li>
+                        <li class="od-empty">No notifications yet. You'll be notified here when the Planning Office approves or rejects a request, or adds an event for your office.</li>
                     @endforelse
                 </ul>
             </div>
@@ -644,12 +669,33 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
-    <script src="{{ asset('js/event-calendar.js') }}"></script>
+    <script src="{{ asset('js/event-calendar.js') }}?v={{ @filemtime(public_path('js/event-calendar.js')) }}"></script>
     <script src="{{ asset('js/ui-feedback.js') }}"></script>
     @include('office.partials.request-history-commands')
     <script src="{{ asset('js/office-request-history-shortcuts.js') }}"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('[data-notify-offices]').forEach(function (group) {
+                var selectAll = group.querySelector('[data-notify-all]');
+                var officeCheckboxes = Array.from(group.querySelectorAll('[data-notify-office]'));
+
+                function updateSelectAll() {
+                    selectAll.checked = officeCheckboxes.length > 0
+                        && officeCheckboxes.every(function (checkbox) { return checkbox.checked; });
+                    selectAll.disabled = officeCheckboxes.length === 0;
+                }
+
+                selectAll.addEventListener('change', function () {
+                    officeCheckboxes.forEach(function (checkbox) {
+                        checkbox.checked = selectAll.checked;
+                    });
+                });
+                officeCheckboxes.forEach(function (checkbox) {
+                    checkbox.addEventListener('change', updateSelectAll);
+                });
+                updateSelectAll();
+            });
+
             var calendarPanel = document.getElementById('calendar-panel');
             var requestForm = document.getElementById('request-form');
             var requestStatus = document.getElementById('request-status');

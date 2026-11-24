@@ -16,7 +16,8 @@ class OfficeCalendarViewerController extends Controller
         $events = EventRequest::where('status', 'approved')
             ->where(fn ($query) => $query
                 ->where('email', $parentOffice->email)
-                ->orWhere('is_university_wide', true))
+                ->orWhere('is_university_wide', true)
+                ->orWhereHas('recipients', fn ($recipients) => $recipients->whereKey($parentOffice->id)))
             ->orderBy('start_datetime')
             ->get()
             ->map(fn (EventRequest $event) => [
@@ -27,7 +28,7 @@ class OfficeCalendarViewerController extends Controller
                 'venue' => $event->venue_name,
                 'campus' => $event->venueCampus(),
                 'university_wide' => (bool) $event->is_university_wide,
-                'office' => $parentOffice->name,
+                'office' => $event->name,
                 'documents' => collect($event->digital_documents ?? [])
                     ->keys()
                     ->map(fn ($index) => [
@@ -49,7 +50,9 @@ class OfficeCalendarViewerController extends Controller
         $parentOffice = $this->parentOffice(Auth::user());
         abort_unless(
             $event->status === 'approved'
-                && ($event->email === $parentOffice->email || $event->is_university_wide),
+                && ($event->email === $parentOffice->email
+                    || $event->is_university_wide
+                    || $event->recipients()->whereKey($parentOffice->id)->exists()),
             404
         );
 

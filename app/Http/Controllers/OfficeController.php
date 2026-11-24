@@ -35,8 +35,9 @@ class OfficeController extends Controller
 
         // ---- Calendar: approved events this office may see ----
         // University-wide offices see every campus; a campus office sees its own campus,
-        // events open to all campuses (wherever they're held), and always its own requests.
+        // events open to all campuses, events addressed to it, and its own requests.
         $approvedEvents = EventRequest::where('status', 'approved')
+            ->with(['recipients' => fn ($query) => $query->where('users.id', $user->id)])
             ->get()
             ->filter(fn ($event) => $event->isVisibleTo($user))
             ->values();
@@ -97,21 +98,47 @@ class OfficeController extends Controller
         $submittedThisMonth = $ownRequests->filter(fn ($r) => $r->created_at && $r->created_at->greaterThanOrEqualTo($monthStart))->count();
         $approvedThisMonth = $ownRequests->filter(fn ($r) => $r->status === 'approved' && $r->updated_at && $r->updated_at->greaterThanOrEqualTo($monthStart))->count();
 
-        // ---- Notifications (status changes the office hasn't seen yet) ----
-        $unreadNotifications = $ownRequests
+        // ---- Notifications (request decisions and events sent to this office) ----
+        $statusNotifications = $ownRequests
             ->whereIn('status', EventRequest::NOTIFIABLE_STATUSES)
-            ->whereNull('read_at')
-            ->sortByDesc('updated_at')
-            ->values();
-
-        // Every notification (read and unread) for the bell dropdown: unread first, then newest
-        $allNotifications = $ownRequests
-            ->whereIn('status', EventRequest::NOTIFIABLE_STATUSES)
+            ->map(fn (EventRequest $event) => (object) [
+                'id' => 'request-' . $event->id,
+                'kind' => 'status',
+                'title' => $event->title,
+                'status' => $event->status,
+                'read_at' => $event->read_at,
+                'updated_at' => $event->updated_at,
+                'venue_name' => $event->venue_name,
+                'campus' => $event->campus,
+                'start_datetime' => $event->start_datetime,
+                'end_datetime' => $event->end_datetime,
+                'planning_note' => $event->planning_note,
+            ]);
+        $notifiedEvents = $user->notifiedEvents()
+            ->where('status', 'approved')
+            ->orderByDesc('event_requests.created_at')
+            ->get();
+        $addedEventNotifications = $notifiedEvents->map(fn (EventRequest $event) => (object) [
+            'id' => 'event-' . $event->id,
+            'kind' => 'added',
+            'title' => $event->title,
+            'status' => 'approved',
+            'read_at' => $event->pivot->read_at,
+            'updated_at' => $event->updated_at,
+            'venue_name' => $event->venue_name,
+            'campus' => $event->campus,
+            'start_datetime' => $event->start_datetime,
+            'end_datetime' => $event->end_datetime,
+            'planning_note' => null,
+        ]);
+        $allNotifications = $statusNotifications
+            ->concat($addedEventNotifications)
             ->sortBy([
                 fn ($a, $b) => ($a->read_at === null ? 0 : 1) <=> ($b->read_at === null ? 0 : 1),
                 fn ($a, $b) => $b->updated_at <=> $a->updated_at,
             ])
             ->values();
+        $unreadNotifications = $allNotifications->whereNull('read_at')->values();
 
         // ---- Reminder banner: next approved event within 48 hours ----
         $reminder = $ownRequests
@@ -134,6 +161,10 @@ class OfficeController extends Controller
             ->unique(fn ($name) => mb_strtolower(trim($name)))
             ->sort(SORT_NATURAL | SORT_FLAG_CASE)
             ->values();
+        $offices = User::where('role', 'office')
+            ->where('id', '!=', $user->id)
+            ->orderBy('name')
+            ->get(['id', 'name', 'email']);
 
         // ---- Recent activity log ----
         $recentActivity = ActivityLog::where('email', $email)->latest()->limit(8)->get();
@@ -163,6 +194,7 @@ class OfficeController extends Controller
             'favoriteVenues',
             'recentActivity',
             'venueOptions',
+            'offices',
             'requestHistoryControls'
         ));
     }
@@ -318,6 +350,12 @@ class OfficeController extends Controller
                 ? ['nullable', 'string', 'max:255']
                 : ['required', 'string', \Illuminate\Validation\Rule::in(\App\Models\User::CAMPUSES)],
             'is_university_wide' => ['nullable', 'boolean'],
+            'notify_offices' => ['nullable', 'array'],
+            'notify_offices.*' => [
+                'integer',
+                'distinct',
+                Rule::exists('users', 'id')->where(fn ($query) => $query->where('role', 'office')),
+            ],
             'start_datetime' => 'required|date',
             'end_datetime' => 'required|date|after:start_datetime',
             'description' => 'nullable|string',
@@ -330,6 +368,7 @@ class OfficeController extends Controller
 
         $user = Auth::user();
         $editId = $request->input('edit_id');
+        $recipientIds = $validated['notify_offices'] ?? [];
         $campus = $isUniversityWide ? 'All Campus' : $validated['campus'];
         $venue = trim($validated['venue_name']);
 
@@ -366,7 +405,7 @@ class OfficeController extends Controller
                 return back()->withInput()->with('error', 'Only pending requests can be edited.');
             }
 
-            DB::transaction(function () use ($existing, $request, $validated, $venue, $campus, $isUniversityWide, $files, $user, $requestHistory): void {
+            DB::transaction(function () use ($existing, $request, $validated, $venue, $campus, $isUniversityWide, $files, $user, $requestHistory, $recipientIds): void {
                 $before = $requestHistory->snapshot($existing);
                 $existing->update([
                     'title' => $request->input('title'),
@@ -382,6 +421,7 @@ class OfficeController extends Controller
                     'digital_documents' => $files ?: $existing->digital_documents,
                     'read_at' => null,
                 ]);
+                $existing->recipients()->sync($recipientIds);
                 $requestHistory->record($user, $existing, 'edited', $before, $requestHistory->snapshot($existing));
                 ActivityLog::record($user->email, 'edited', "Edited request \"{$existing->title}\"");
             });
@@ -391,7 +431,7 @@ class OfficeController extends Controller
         }
 
         // ---- Creating a new request ----
-        $new = DB::transaction(function () use ($user, $request, $validated, $venue, $campus, $isUniversityWide, $files, $requestHistory): EventRequest {
+        $new = DB::transaction(function () use ($user, $request, $validated, $venue, $campus, $isUniversityWide, $files, $requestHistory, $recipientIds): EventRequest {
             $event = EventRequest::create([
                 'name' => $user->name,
                 'email' => $user->email,
@@ -407,6 +447,7 @@ class OfficeController extends Controller
                 'status' => 'pending',
                 'digital_documents' => $files,
             ]);
+            $event->recipients()->sync($recipientIds);
 
             $requestHistory->record($user, $event, 'created', null, $requestHistory->snapshot($event));
             ActivityLog::record($user->email, 'submitted', "Submitted \"{$event->title}\" for {$event->venue_name}");
@@ -432,6 +473,7 @@ class OfficeController extends Controller
             'attention_to' => $original->attention_to,
             'campus' => $original->campus,
             'is_university_wide' => $original->is_university_wide ? '1' : '0',
+            'notify_offices' => $original->recipients()->pluck('users.id')->all(),
             'description' => $original->description,
             'start_datetime' => optional($original->start_datetime)->format('Y-m-d\TH:i'),
             'end_datetime' => optional($original->end_datetime)->format('Y-m-d\TH:i'),
@@ -458,6 +500,7 @@ class OfficeController extends Controller
             'attention_to' => $original->attention_to,
             'campus' => $original->campus,
             'is_university_wide' => $original->is_university_wide ? '1' : '0',
+            'notify_offices' => $original->recipients()->pluck('users.id')->all(),
             'description' => $original->description,
             'start_datetime' => optional($original->start_datetime)->format('Y-m-d\TH:i'),
             'end_datetime' => optional($original->end_datetime)->format('Y-m-d\TH:i'),
@@ -549,10 +592,15 @@ class OfficeController extends Controller
 
     public function markNotificationsRead()
     {
+        $user = Auth::user();
         EventRequest::where('email', Auth::user()->email)
             ->whereIn('status', EventRequest::NOTIFIABLE_STATUSES)
             ->whereNull('read_at')
             ->update(['read_at' => now()]);
+        DB::table('event_request_recipients')
+            ->where('user_id', $user->id)
+            ->whereNull('read_at')
+            ->update(['read_at' => now(), 'updated_at' => now()]);
 
         return back();
     }

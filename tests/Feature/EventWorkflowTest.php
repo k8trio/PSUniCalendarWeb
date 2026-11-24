@@ -18,6 +18,7 @@ test('office add event page presents the event form as a standalone page', funct
         ->assertOk()
         ->assertSee('od-add-event-page')
         ->assertSee('id="venue-request-form"', false)
+        ->assertSee('All offices')
         ->assertSee('Back to Dashboard');
 });
 

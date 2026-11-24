@@ -76,6 +76,13 @@ class User extends Authenticatable
         return $this->belongsTo(self::class, 'parent_office_id');
     }
 
+    public function notifiedEvents(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    {
+        return $this->belongsToMany(EventRequest::class, 'event_request_recipients')
+            ->withPivot('read_at')
+            ->withTimestamps();
+    }
+
     /**
      * Can this account see an event held at the given campus?
      * University-wide offices see everything; a campus office sees its own campus

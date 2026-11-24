@@ -26,7 +26,10 @@ class AppServiceProvider extends ServiceProvider
     {
         // Planning Office sidebar: university offices + pending review count
         View::composer('layouts.planning-office', function ($view) {
-            $offices = User::where('role', 'office')->orderBy('name')->get(['id', 'name', 'campus']);
+            $offices = User::where('role', 'office')
+                ->whereNotIn('email', ['ous@psu.local', 'sas@psu.local'])
+                ->orderBy('name')
+                ->get(['id', 'name', 'campus']);
 
             // Show the main campus accounts at the end of the University Offices group.
             $officesByGroup = collect(User::SIDEBAR_OFFICE_GROUPS)

@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Casts\AsArrayObject;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class EventRequest extends Model
 {
@@ -88,15 +89,30 @@ class EventRequest extends Model
             : self::SCOPE_CAMPUS_SPECIFIC;
     }
 
+    public function recipients(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'event_request_recipients')
+            ->withPivot('read_at')
+            ->withTimestamps();
+    }
+
     /**
      * Should this event appear on the given office's calendar?
-     * Yes if it's the office's own request, if it's for all campuses, or if the
-     * office can see events at the venue's campus.
+     * Yes if it's the office's own request, it was sent to the office, or it is
+     * otherwise visible at the venue's campus.
      */
     public function isVisibleTo(User $user): bool
     {
-        return $this->email === $user->email
+        if ($this->email === $user->email
             || $this->is_university_wide
-            || $user->canSeeCampusEvent($this->venueCampus());
+            || $user->canSeeCampusEvent($this->venueCampus())) {
+            return true;
+        }
+
+        if ($this->relationLoaded('recipients')) {
+            return $this->recipients->contains('id', $user->id);
+        }
+
+        return $this->recipients()->whereKey($user->id)->exists();
     }
 }

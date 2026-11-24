@@ -16,7 +16,7 @@
             </span>
             <span class="od-brand__text">
                 <span class="od-brand__name">UniCalendar</span>
-                <span class="od-brand__tag">OFFICE DASHBOARD</span>
+                <span class="od -brand__tag">OFFICE DASHBOARD</span>
             </span>
         </a>
 

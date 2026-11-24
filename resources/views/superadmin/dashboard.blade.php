@@ -5,6 +5,17 @@
 @section('subheading')
     Welcome, {{ auth()->user()->name }} · {{ now()->format('l, F j, Y') }}
 @endsection
+@section('topbar-actions')
+    <a href="{{ route('planning_office.add-event') }}"
+       class="od-btn od-btn--primary od-btn--sm po-add-event"
+       aria-label="Add Event"
+       title="Add Event">
+        <svg class="po-add-event__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path stroke-linecap="round" d="M12 5v14m-7-7h14" />
+        </svg>
+        <span class="po-add-event__label" aria-hidden="true">Add Event</span>
+    </a>
+@endsection
 @push('head')
     <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.css" rel="stylesheet">
     <link href="{{ asset('css/event-calendar.css') }}" rel="stylesheet">
@@ -294,7 +305,7 @@
 @push('scripts')
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="{{ asset('js/event-calendar.js') }}"></script>
+    <script src="{{ asset('js/event-calendar.js') }}?v={{ @filemtime(public_path('js/event-calendar.js')) }}"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function () {
             // ---- Calendar ----

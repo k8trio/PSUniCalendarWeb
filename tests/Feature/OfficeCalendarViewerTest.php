@@ -140,6 +140,37 @@ test('calendar viewer sees parent-office and university-wide approved events', f
     ]))->assertNotFound();
 });
 
+test('calendar viewer sees an approved event notified to its parent office', function () {
+    Storage::fake('public');
+    Storage::disk('public')->put('event-documents/notified-office-memo.pdf', 'notified memo');
+
+    $viewer = officeCalendarViewer();
+    $parentOffice = $viewer->parentOffice;
+    $event = officeViewerEvent([
+    'name' => 'Planning Office',
+    'email' => 'planning@psu.local',
+    'title' => 'Notified parent office event',
+    'venue_name' => 'Alaminos Hall',
+    'campus' => 'Alaminos Campus',
+    'digital_documents' => ['event-documents/notified-office-memo.pdf'],
+    ]);
+    $event->recipients()->attach($parentOffice->id);
+
+    $response = $this->actingAs($viewer)
+    ->get(route('office.viewer-calendar'))
+    ->assertOk()
+    ->assertSee('Notified parent office event');
+
+    expect($response->viewData('events')->pluck('title')->all())
+    ->toContain('Notified parent office event');
+
+    $this->get(route('office.viewer-calendar.documents.show', [
+    'event' => $event,
+    'documentIndex' => 1,
+    ]))->assertOk()
+    ->assertHeader('content-disposition', 'inline; filename=notified-office-memo.pdf');
+});
+
 test('calendar viewers cannot submit requests or enter office and Planning dashboards', function () {
     $viewer = officeCalendarViewer();
     $event = officeViewerEvent(['status' => 'pending']);

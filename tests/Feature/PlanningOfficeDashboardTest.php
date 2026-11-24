@@ -32,6 +32,135 @@ beforeEach(function () {
     $this->planning = User::factory()->create(['role' => 'planning_office', 'email' => 'planning@psu.local']);
 });
 
+test('planning office can add an approved event directly', function () {
+    Storage::fake('public');
+
+    $response = $this->actingAs($this->planning)
+        ->get(route('planning_office.add-event'));
+
+    $response->assertOk()
+        ->assertSee('Add Event')
+        ->assertSee('Planning Office entries are approved immediately.')
+        ->assertSee('All offices');
+
+    $start = now()->addDays(5)->setTime(9, 0);
+    $end = $start->copy()->addDay()->setTime(17, 0);
+
+    $this->followingRedirects()->post(route('planning_office.events.store'), [
+        'title' => 'Planning Office Forum',
+        'venue_name' => 'University Convention Hall',
+        'event_for' => 'University offices',
+        'attention_to' => 'Campus officials',
+        'is_university_wide' => '1',
+        'start_datetime' => $start->format('Y-m-d\TH:i'),
+        'end_datetime' => $end->format('Y-m-d\TH:i'),
+        'description' => 'Direct planning office entry.',
+    ])
+        ->assertOk()
+        ->assertSee('Event added successfully')
+        ->assertSee('Planning Office Forum')
+        ->assertSee('Add another event')
+        ->assertSee('Done')
+        ->assertDontSee('name="title"', false);
+
+    $event = EventRequest::where('title', 'Planning Office Forum')->firstOrFail();
+    expect($event->status)->toBe('approved')
+        ->and($event->campus)->toBe('All Campus')
+        ->and($event->is_university_wide)->toBeTrue()
+        ->and($event->email)->toBe($this->planning->email)
+        ->and($event->name)->toBe($this->planning->name);
+
+    $this->get(route('planning_office.add-event'))
+        ->assertOk()
+        ->assertSee('name="title"', false);
+
+    $this->get(route('planning_office.dashboard'))
+        ->assertOk()
+        ->assertSee('Planning Office Forum')
+        ->assertSee($start->toJSON(), false)
+        ->assertSee($end->toJSON(), false)
+        ->assertSee('js/event-calendar.js?v=' . filemtime(public_path('js/event-calendar.js')), false);
+});
+
+test('planning office can add an event to selected offices calendars and notify them', function () {
+    $recipient = User::factory()->create([
+        'name' => 'ICTMO',
+        'role' => 'office',
+        'campus' => 'Alaminos Campus',
+    ]);
+
+    $start = now()->addDays(6)->setTime(9, 0);
+    $this->actingAs($this->planning)->post(route('planning_office.events.store'), [
+        'title' => 'ICTMO Calendar Notice',
+        'venue_name' => 'Lingayen Hall',
+        'campus' => 'Lingayen Campus',
+        'is_university_wide' => '0',
+        'notify_offices' => [$recipient->id],
+        'start_datetime' => $start->format('Y-m-d\TH:i'),
+        'end_datetime' => $start->copy()->addHour()->format('Y-m-d\TH:i'),
+    ])->assertRedirect(route('planning_office.add-event'));
+
+    $event = EventRequest::where('title', 'ICTMO Calendar Notice')->firstOrFail();
+    expect($event->email)->toBe($this->planning->email)
+        ->and($event->recipients()->pluck('users.id')->all())->toBe([$recipient->id]);
+
+    $officeResponse = $this->actingAs($recipient)->get('/office')->assertOk();
+    expect($officeResponse->viewData('events')->pluck('title')->all())->toContain('ICTMO Calendar Notice')
+        ->and($officeResponse->viewData('unreadNotifications')->pluck('title')->all())->toContain('ICTMO Calendar Notice')
+        ->and($officeResponse->viewData('allNotifications')->first()->kind)->toBe('added');
+
+    $this->actingAs($this->planning)->get(route('planning_office.dashboard'))
+        ->assertOk()
+        ->assertSee('ICTMO Calendar Notice');
+});
+
+test('office event recipients are notified and see the event only after approval', function () {
+    $presidentOffice = User::factory()->create([
+        'name' => 'Office of the President',
+        'role' => 'office',
+        'campus' => User::UNIVERSITY_OFFICES,
+    ]);
+    $recipient = User::factory()->create([
+        'name' => 'ICTMO',
+        'role' => 'office',
+        'campus' => 'Alaminos Campus',
+    ]);
+    $start = now()->addDays(7)->setTime(9, 0);
+
+    $this->actingAs($presidentOffice)->post(route('office.request'), [
+        'title' => 'President ICTMO Coordination',
+        'venue_name' => 'Lingayen Hall',
+        'campus' => 'Lingayen Campus',
+        'is_university_wide' => '0',
+        'notify_offices' => [$recipient->id],
+        'start_datetime' => $start->format('Y-m-d\TH:i'),
+        'end_datetime' => $start->copy()->addHour()->format('Y-m-d\TH:i'),
+    ])->assertRedirect(route('office.request-status'));
+
+    $event = EventRequest::where('title', 'President ICTMO Coordination')->firstOrFail();
+    expect($event->status)->toBe('pending')
+        ->and($event->recipients()->pluck('users.id')->all())->toBe([$recipient->id]);
+
+    $beforeApproval = $this->actingAs($recipient)->get('/office')->assertOk();
+    expect($beforeApproval->viewData('events')->pluck('title')->all())->not->toContain('President ICTMO Coordination')
+        ->and($beforeApproval->viewData('allNotifications')->pluck('title')->all())->not->toContain('President ICTMO Coordination');
+
+    $this->actingAs($this->planning)
+        ->post(route('planning_office.approve', $event))
+        ->assertRedirect();
+
+    $afterApproval = $this->actingAs($recipient)->get('/office')->assertOk();
+    expect($afterApproval->viewData('events')->pluck('title')->all())->toContain('President ICTMO Coordination')
+        ->and($afterApproval->viewData('unreadNotifications')->pluck('title')->all())->toContain('President ICTMO Coordination');
+
+    $this->post(route('office.notifications.read'))->assertRedirect();
+    expect($event->recipients()->first()->pivot->read_at)->not->toBeNull();
+
+    $this->actingAs($this->planning)->get(route('planning_office.dashboard'))
+        ->assertOk()
+        ->assertSee('President ICTMO Coordination');
+});
+
 test('planning office search finds offices and event details', function () {
     $office = User::factory()->create([
         'name' => 'Office of the President',
@@ -747,6 +876,18 @@ test('planning office sidebar lists main campus offices at the end of the univer
         'role' => 'office',
         'campus' => User::UNIVERSITY_OFFICES,
     ]);
+    User::factory()->create([
+        'name' => 'Open University System (OUS)',
+        'email' => 'ous@psu.local',
+        'role' => 'office',
+        'campus' => User::UNIVERSITY_OFFICES,
+    ]);
+    User::factory()->create([
+        'name' => 'Student Affairs and Services (SAS)',
+        'email' => 'sas@psu.local',
+        'role' => 'office',
+        'campus' => User::UNIVERSITY_OFFICES,
+    ]);
     foreach (User::MAIN_CAMPUSES as $campus) {
         $email = array_search('PSU ' . str_replace(' Campus', '', $campus) . ' Campus', User::PLANNING_OFFICE_ACCOUNT_LABELS, true);
         User::factory()->create([
@@ -766,7 +907,12 @@ test('planning office sidebar lists main campus offices at the end of the univer
         ->toContain('PSU Alaminos Campus')
         ->toContain('PSU Binmaley Campus')
         ->toContain('PSU Lingayen Campus')
+        ->not->toContain('Open University System (OUS)')
+        ->not->toContain('Student Affairs and Services (SAS)')
         ->not->toContain('po-group__name">Alaminos Campus');
+
+    preg_match('/<span class="po-nav-count po-nav-count--muted">(\d+)<\/span>/', $sidebarOffices[1], $officeCount);
+    expect((int) $officeCount[1])->toBe(4);
 
     $presidentPosition = strpos($sidebarOffices[1], 'Office of the President');
     $alaminosPosition = strpos($sidebarOffices[1], 'PSU Alaminos Campus');

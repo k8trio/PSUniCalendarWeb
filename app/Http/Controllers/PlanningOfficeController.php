@@ -9,17 +9,172 @@ use App\Models\Venue;
 use App\Services\EventConflictChecker;
 use App\Services\PlanningOfficeDashboard;
 use App\Services\ReportTemplateFonts;
+use App\Services\GoogleCalendarEventService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Barryvdh\DomPDF\Facade\Pdf;
 
 class PlanningOfficeController extends Controller
 {
+    public function addEvent()
+    {
+        $venueOptions = Venue::orderBy('name')->pluck('name')
+            ->merge(EventRequest::distinct()->pluck('venue_name'))
+            ->filter()
+            ->unique(fn ($name) => mb_strtolower(trim($name)))
+            ->sort(SORT_NATURAL | SORT_FLAG_CASE)
+            ->values();
+
+        $offices = User::where('role', 'office')
+            ->orderBy('name')
+            ->get(['id', 'name', 'email']);
+
+        return view('superadmin.add-event', compact('venueOptions', 'offices'));
+    }
+
+    public function storeEvent(
+        Request $request,
+        EventConflictChecker $conflictChecker,
+        GoogleCalendarEventService $calendar
+    ) {
+        $isUniversityWide = $request->boolean('is_university_wide');
+        foreach ($request->file('digital_documents', []) as $index => $file) {
+            if (! $file instanceof \Illuminate\Http\UploadedFile || $file->isValid()) {
+                continue;
+            }
+
+            $uploadError = $file->getError();
+            $message = match ($uploadError) {
+                UPLOAD_ERR_INI_SIZE => 'The document exceeds the server upload limit of ' . ini_get('upload_max_filesize') . '. The application limit is 10 MB per file.',
+                UPLOAD_ERR_FORM_SIZE => 'The document exceeds the maximum size allowed by the form.',
+                UPLOAD_ERR_PARTIAL => 'The document upload was interrupted. Please try again.',
+                UPLOAD_ERR_NO_TMP_DIR => 'The server upload temporary folder is unavailable. Please contact support.',
+                UPLOAD_ERR_CANT_WRITE => 'The server could not write the uploaded document. Please contact support.',
+                UPLOAD_ERR_EXTENSION => 'A server extension stopped the document upload. Please contact support.',
+                default => 'The document upload failed (PHP upload error ' . $uploadError . '). Please try again or contact support.',
+            };
+
+            Log::warning('Planning Office supporting document upload failed.', [
+                'user_id' => Auth::id(),
+                'upload_error_code' => $uploadError,
+                'upload_max_filesize' => ini_get('upload_max_filesize'),
+                'post_max_size' => ini_get('post_max_size'),
+            ]);
+
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                "digital_documents.{$index}" => $message,
+            ]);
+        }
+
+        $validated = $request->validate([
+            'title' => ['required', 'string', 'max:255'],
+            'venue_name' => ['required', 'string', 'max:255'],
+            'event_for' => ['nullable', 'string', 'max:5000'],
+            'attention_to' => ['nullable', 'string', 'max:5000'],
+            'campus' => $isUniversityWide
+                ? ['nullable', 'string', 'max:255']
+                : ['required', 'string', Rule::in(User::CAMPUSES)],
+            'is_university_wide' => ['nullable', 'boolean'],
+            'notify_offices' => ['nullable', 'array'],
+            'notify_offices.*' => [
+                'integer',
+                'distinct',
+                Rule::exists('users', 'id')->where(fn ($query) => $query->where('role', 'office')),
+            ],
+            'start_datetime' => ['required', 'date'],
+            'end_datetime' => ['required', 'date', 'after:start_datetime'],
+            'description' => ['nullable', 'string'],
+            'digital_documents' => ['nullable', 'array'],
+            'digital_documents.*' => ['file', 'mimes:pdf,jpg,jpeg,png,doc,docx', 'max:10240'],
+        ], [
+            'digital_documents.*.uploaded' => 'The supporting document could not be uploaded. Use a PDF, JPG, JPEG, PNG, DOC, or DOCX file no larger than 10 MB, then try again.',
+        ]);
+
+        $start = Carbon::parse($validated['start_datetime']);
+        $end = Carbon::parse($validated['end_datetime']);
+        if (! EventConflictChecker::isWithinOfficeHours($start, $end)) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'start_datetime' => 'Events must start and end between 8:00 AM and 5:00 PM. Multi-day events are allowed within these hours.',
+            ]);
+        }
+
+        $campus = $isUniversityWide ? 'All Campus' : $validated['campus'];
+        $venue = trim($validated['venue_name']);
+        $conflicts = $conflictChecker->find($venue, $campus, $start, $end);
+        if ($conflicts->isNotEmpty()) {
+            return back()->withInput()->with(
+                'error',
+                'This venue is already booked during that time. Choose another venue or time before adding the event.'
+            );
+        }
+
+        $files = [];
+        foreach ($request->file('digital_documents', []) as $file) {
+            $files[] = $file->store('event-documents', 'public');
+        }
+
+        $planningOffice = Auth::user();
+        $googleEventId = null;
+        if ($calendar->isConfigured()) {
+            try {
+                $pending = new EventRequest([
+                    'name' => $planningOffice->name,
+                    'email' => $planningOffice->email,
+                    'title' => $validated['title'],
+                    'venue_name' => $venue,
+                    'event_for' => $validated['event_for'] ?? null,
+                    'attention_to' => $validated['attention_to'] ?? null,
+                    'campus' => $campus,
+                    'is_university_wide' => $isUniversityWide,
+                    'description' => $validated['description'] ?? null,
+                    'start_datetime' => $start,
+                    'end_datetime' => $end,
+                    'status' => 'approved',
+                    'digital_documents' => $files,
+                ]);
+                $googleEventId = $calendar->insert($pending);
+            } catch (\Google\Exception|\InvalidArgumentException $exception) {
+                \Illuminate\Support\Facades\Log::error('Google Calendar insert failed while adding a Planning Office event.', [
+                    'message' => $exception->getMessage(),
+                ]);
+                return back()->withInput()->with('error', 'The event could not be synced to Google Calendar. Nothing was added.');
+            }
+        }
+
+        $recipientIds = $validated['notify_offices'] ?? [];
+
+        DB::transaction(function () use ($planningOffice, $validated, $venue, $campus, $isUniversityWide, $start, $end, $files, $googleEventId, $recipientIds): void {
+            $event = EventRequest::create([
+                'name' => $planningOffice->name,
+                'email' => $planningOffice->email,
+                'title' => $validated['title'],
+                'venue_name' => $venue,
+                'event_for' => $validated['event_for'] ?? null,
+                'attention_to' => $validated['attention_to'] ?? null,
+                'campus' => $campus,
+                'is_university_wide' => $isUniversityWide,
+                'description' => $validated['description'] ?? null,
+                'start_datetime' => $start,
+                'end_datetime' => $end,
+                'status' => 'approved',
+                'digital_documents' => $files,
+                'google_event_id' => $googleEventId,
+            ]);
+            $event->recipients()->sync($recipientIds);
+
+            ActivityLog::record($planningOffice->email, 'approved', "Planning Office added \"{$event->title}\"");
+        });
+
+        return redirect()->route('planning_office.add-event')
+            ->with('event_added', $validated['title']);
+    }
+
     public function dashboard(Request $request, PlanningOfficeDashboard $dashboard)
     {
         $filters = $request->validate([
