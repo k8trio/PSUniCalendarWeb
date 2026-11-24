@@ -15,6 +15,8 @@ class EventRequest extends Model
         'name',
         'email',
         'title',
+        'office_advisory_no',
+        'series_text',
         'venue_name',
         'event_for',
         'attention_to',

@@ -104,6 +104,9 @@ Route::middleware(['auth', 'role:planning_office'])->prefix('planning-office')->
     Route::get('/settings', [PlanningOfficeController::class, 'settings'])->name('planning_office.settings');
     Route::patch('/settings/profile', [PlanningOfficeController::class, 'updateSettingsProfile'])->name('planning_office.settings.profile');
     Route::patch('/settings/password', [PlanningOfficeController::class, 'updateSettingsPassword'])->name('planning_office.settings.password');
+
+    Route::get('/reports/planning-office-added-events', [PlanningOfficeController::class, 'planningOfficeAddedEventsReport'])->name('planning_office.reports.added-events.preview');
+    Route::get('/reports/planning-office-added-events.pdf', [PlanningOfficeController::class, 'downloadPlanningOfficeAddedEventsReport'])->name('planning_office.reports.added-events');
 });
 
 Route::get('/events/{event}/documents/{documentIndex}', [UserController::class, 'eventDocument'])

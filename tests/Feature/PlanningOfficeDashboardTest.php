@@ -1130,3 +1130,55 @@ test('an office can edit a request returned for revision', function () {
         ->assertSessionMissing('error');
     $this->actingAs($office)->get('/office')->assertOk()->assertSee('Returned for revision');
 });
+
+test('Planning Office event advisory number and series are saved and shown in the added events report', function () {
+    $start = now()->addDays(10)->setTime(9, 0);
+
+    $this->actingAs($this->planning)
+        ->get(route('planning_office.add-event'))
+        ->assertOk()
+        ->assertSee('Office Advisory No.')
+        ->assertSee('name="office_advisory_no"', false)
+        ->assertSee('Series')
+        ->assertSee('name="series_text"', false);
+
+    $this->actingAs($this->planning)
+        ->post(route('planning_office.events.store'), [
+            'office_advisory_no' => 'PO-2026-123',
+            'series_text' => 'Series A',
+            'title' => 'Planning Office Test Event',
+            'venue_name' => 'Planning Office Test Venue',
+            'campus' => 'Lingayen Campus',
+            'is_university_wide' => '0',
+            'start_datetime' => $start->format('Y-m-d\TH:i'),
+            'end_datetime' => $start->copy()->addHour()->format('Y-m-d\TH:i'),
+            'description' => 'Test event memo text.',
+        ])
+        ->assertRedirect(route('planning_office.add-event'));
+
+    $event = EventRequest::where('title', 'Planning Office Test Event')->firstOrFail();
+
+    expect($event->office_advisory_no)->toBe('PO-2026-123')
+        ->and($event->series_text)->toBe('Series A');
+
+    // An event submitted by an office must not appear in the Planning Office report.
+    dashboardEvent([
+        'email' => 'office-submitted@psu.local',
+        'title' => 'Office Submitted Event Must Not Appear',
+        'venue_name' => 'Different Test Venue',
+    ]);
+
+    $this->actingAs($this->planning)
+        ->get(route('planning_office.reports.added-events.preview'))
+        ->assertOk()
+        ->assertSee('Planning Office Added Events Report')
+        ->assertSee('PO-2026-123')
+        ->assertSee('Series A')
+        ->assertSee('Planning Office Test Event')
+        ->assertSee('Test event memo text.')
+        ->assertDontSee('Office Submitted Event Must Not Appear');
+
+    $this->get(route('planning_office.reports.added-events'))
+        ->assertOk()
+        ->assertHeader('content-type', 'application/pdf');
+});

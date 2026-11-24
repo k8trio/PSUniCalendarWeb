@@ -74,6 +74,8 @@ class PlanningOfficeController extends Controller
 
         $validated = $request->validate([
             'title' => ['required', 'string', 'max:255'],
+             'office_advisory_no' => ['nullable', 'string', 'max:255'],
+            'series_text' => ['nullable', 'string', 'max:255'],
             'venue_name' => ['required', 'string', 'max:255'],
             'event_for' => ['nullable', 'string', 'max:5000'],
             'attention_to' => ['nullable', 'string', 'max:5000'],
@@ -126,6 +128,8 @@ class PlanningOfficeController extends Controller
                 $pending = new EventRequest([
                     'name' => $planningOffice->name,
                     'email' => $planningOffice->email,
+                    'office_advisory_no' => $validated['office_advisory_no'] ?? null,
+                    'series_text' => $validated['series_text'] ?? null,
                     'title' => $validated['title'],
                     'venue_name' => $venue,
                     'event_for' => $validated['event_for'] ?? null,
@@ -153,6 +157,8 @@ class PlanningOfficeController extends Controller
             $event = EventRequest::create([
                 'name' => $planningOffice->name,
                 'email' => $planningOffice->email,
+                'office_advisory_no' => $validated['office_advisory_no'] ?? null,
+                'series_text' => $validated['series_text'] ?? null,
                 'title' => $validated['title'],
                 'venue_name' => $venue,
                 'event_for' => $validated['event_for'] ?? null,
@@ -208,6 +214,39 @@ class PlanningOfficeController extends Controller
             ->setOption('enable_font_subsetting', true)
             ->setPaper([0, 0, 612, 936])
             ->download('planning-office-event-report-' . now()->format('Ymd-His') . '.pdf');
+    }
+
+    public function planningOfficeAddedEventsReport()
+    {
+        $events = $this->planningOfficeAddedEventsQuery()->get();
+
+        return view('superadmin.reports.planning-office-events', compact('events'));
+    }
+
+    public function downloadPlanningOfficeAddedEventsReport()
+    {
+        $templateFonts = app(ReportTemplateFonts::class)->forPdf();
+
+        return Pdf::loadView('reports.planning-office-events', [
+            'events' => $this->planningOfficeAddedEventsQuery()->get(),
+            'reportTitle' => 'Planning Office Added Events Detailed Report',
+            'templateFonts' => $templateFonts,
+        ])
+            ->setOption('chroot', $templateFonts['chroot'])
+            ->setOption('enable_font_subsetting', true)
+            ->setPaper([0, 0, 612, 936])
+            ->download('planning-office-added-events-' . now()->format('Ymd-His') . '.pdf');
+    }
+
+    private function planningOfficeAddedEventsQuery()
+    {
+        $planningOfficeEmails = User::query()
+            ->where('role', 'planning_office')
+            ->pluck('email');
+
+        return EventRequest::query()
+            ->whereIn('email', $planningOfficeEmails)
+            ->orderByDesc('start_datetime');
     }
 
     private function detailedReportData(Request $request): array

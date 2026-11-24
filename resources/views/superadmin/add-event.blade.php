@@ -49,6 +49,30 @@
                         </ul>
                     </div>
                 @endif
+                <div class="od-form-grid">
+                <label class="od-field">
+                    <span class="od-label">Office Advisory No.</span>
+                    <input
+                        type="text"
+                        name="office_advisory_no"
+                        value="{{ old('office_advisory_no') }}"
+                        maxlength="255"
+                        class="od-input"
+                    >
+                </label>
+
+                <label class="od-field">
+                    <span class="od-label">Series</span>
+                    <input
+                        type="text"
+                        name="series_text"
+                        value="{{ old('series_text') }}"
+                        maxlength="255"
+                        class="od-input"
+                    >
+                </label>
+            </div>
+            
             <div class="od-form-grid">
                 <label class="od-field">
                     <span class="od-label">Subject (Event Title)</span>

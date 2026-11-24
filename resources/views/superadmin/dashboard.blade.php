@@ -15,6 +15,10 @@
         </svg>
         <span class="po-add-event__label" aria-hidden="true">Add Event</span>
     </a>
+    <a href="{{ route('planning_office.reports.added-events.preview') }}"
+       class="od-btn od-btn--ghost od-btn--sm">
+        Planning Office Added Events Report
+    </a>
 @endsection
 @push('head')
     <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.css" rel="stylesheet">
